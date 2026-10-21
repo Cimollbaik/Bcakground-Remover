@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SVG Cleaner – Latar Transparan Bersih</title>
+<style>
+  :root { --bg:#12141a; --panel:#1c1f28; --line:#2c3040; --text:#e8eaf0; --muted:#8b91a5; --accent:#7c9cff; --ok:#2ee59d; --warn:#ffb454; --pink:#ff2d95; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+  main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .hidden { display: none !important; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 9px 16px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0b1020; font-weight: 600; }
+  button.small { padding: 5px 12px; font-size: 13px; }
+  button:hover { filter: brightness(1.12); }
+  button.on { background: var(--ok); border-color: var(--ok); color: #05261a; font-weight: 600; }
+
+  #dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed var(--line); border-radius: 16px; text-align: center; transition: .15s; cursor: pointer; padding: 48px 24px; }
+  #dropzone.drag { border-color: var(--accent); background: rgba(124,156,255,.08); }
+  #dropzone .icon { font-size: 44px; }
+  #dropzone small { color: var(--muted); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+  label.opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
+  label.opt input { margin-top: 5px; }
+  label.opt small { display: block; color: var(--muted); }
+
+  .stage { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+  .stage.checker { background-color: #fff; background-image: linear-gradient(45deg,#d9d9e0 25%,transparent 25%,transparent 75%,#d9d9e0 75%),linear-gradient(45deg,#d9d9e0 25%,transparent 25%,transparent 75%,#d9d9e0 75%); background-size: 24px 24px; background-position: 0 0, 12px 12px; }
+  .stage.white { background: #fff; }
+  .stage.dark { background: #15161b; }
+  .stage svg { display: block; width: 100%; height: auto; }
+
+  .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .cand { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #181b23; }
+  .cand .stage { margin-bottom: 8px; }
+  .cand .meta { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .cand .seg { display: flex; gap: 6px; }
+  .cand .seg button { flex: 1; padding: 6px 4px; font-size: 13px; }
+
+  .warns { margin: 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
+  .stats { color: var(--muted); font-size: 13px; }
+  #error { color: #ff8a8a; text-align: center; padding: 12px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  pre { margin: 0; max-height: 220px; overflow: auto; padding: 12px; background: #101218; border-radius: 8px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<header><h1>SVG Cleaner</h1><span>Hapus path latar · lubangi bentuk krem sisa · 100% di perangkatmu</span></header>
+
+<main>
+  <div id="dropzone">
+    <div class="icon">🧹</div>
+    <strong>Tarik &amp; lepas file SVG di sini</strong>
+    <span>atau ketuk untuk memilih file</span>
+    <small>Khusus SVG berisi &lt;path&gt;, seperti hasil auto-trace</small>
+    <input id="fileInput" type="file" accept=".svg,image/svg+xml" hidden>
+  </div>
+  <div id="error" class="hidden"></div>
+
+  <div id="work" class="hidden">
+    <div class="layout">
+      <div>
+        <div class="card">
+          <div class="row">
+            <h2 style="margin:0">Pratinjau hasil</h2>
+            <span class="spacer"></span>
+            <button class="small on" data-bg="checker">Kotak-kotak</button>
+            <button class="small" data-bg="white">Putih</button>
+            <button class="small" data-bg="dark">Gelap</button>
+          </div>
+          <div style="height:10px"></div>
+          <div id="stage" class="stage checker"></div>
+          <p class="hint" style="margin:8px 0 0">Garis putus-putus = bentuk berwarna latar. Hijau = akan dilubangi (transparan). Merah muda = dipertahankan. Ketuk bentuknya untuk mengganti.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Pembersihan</h2>
+          <label class="opt"><input type="checkbox" id="optBg" checked><span>Hapus path latar penuh<small id="bgInfo"></small></span></label>
+          <label class="opt"><input type="checkbox" id="optTr" checked><span>Buang <code>transform="translate(0,0)"</code> yang mubazir</span></label>
+          <label class="opt" id="optGradWrap"><input type="checkbox" id="optGrad" checked><span>Ratakan gradien jadi warna flat<small>Lebih aman saat dikonversi ke EPS</small></span></label>
+          <div id="manualBg" class="hidden" style="margin-top:8px">
+            <div class="hint">Tidak ada path latar penuh. Isi warna latar (hex) jika ingin mencari bentuk krem sisa:</div>
+            <input id="bgHex" placeholder="#fcfbf3" style="margin-top:6px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#101218;color:var(--text);width:140px">
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Bentuk berwarna latar <span id="candCount"></span></h2>
+          <p class="hint" style="margin:0 0 10px">Pilih <b>Lubangi</b> untuk bagian yang di gambar aslinya tembus pandang (misalnya lubang cincin atau celah antar lengan). Pilih <b>Pertahankan</b> untuk cat krem yang memang bagian gambar (misalnya putih mata atau gigi).</p>
+          <div class="row" style="margin-bottom:10px">
+            <button class="small" id="allHole">Lubangi semua</button>
+            <button class="small" id="allKeep">Pertahankan semua</button>
+          </div>
+          <div id="cands" class="cands"></div>
+          <p id="noCands" class="hint hidden">Tidak ada bentuk berwarna latar. Tidak ada yang perlu dilubangi.</p>
+        </div>
+
+        <div class="card">
+          <h2>Hasil</h2>
+          <div id="stats" class="stats"></div>
+          <ul id="warns" class="warns"></ul>
+          <div class="row" style="margin-top:12px">
+            <button class="primary" id="btnDownload">⬇ Download SVG bersih</button>
+            <button id="btnCopy">Salin kode</button>
+            <button id="btnReset">↺ File lain</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ==CORE-START==
+function fmt(v) { return String(+v.toFixed(3)); }
+
+function parseColor(s) {
+  s = (s || "").trim().toLowerCase();
+  let m = s.match(/^rgb\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*\)$/);
+  if (m) return [+m[1], +m[2], +m[3]];
+  m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+  if (m) {
+    let h = m[1];
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  return null;
+}
+
+// Parser path: M L H V C Q Z (absolut & relatif). Arc/S/T dianggap tidak didukung.
+function parsePath(d) {
+  const toks = (d || "").match(/[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g) || [];
+  const subs = []; let cur = null, i = 0, cmd = "", cx = 0, cy = 0, sx = 0, sy = 0;
+  const num = () => parseFloat(toks[i++]);
+  while (i < toks.length) {
+    const t = toks[i];
+    if (/[A-Za-z]/.test(t)) {
+      cmd = t; i++;
+      if (/[AaSsTt]/.test(cmd)) return { ok: false, subs: [] };
+      if (cmd === "Z" || cmd === "z") { if (cur) { cur.closed = true; cx = sx; cy = sy; } continue; }
+    } else if (!cmd) return { ok: false, subs: [] };
+    const rel = cmd === cmd.toLowerCase();
+    const C = cmd.toUpperCase();
+    if (C === "M") {
+      let x = num(), y = num(); if (rel) { x += cx; y += cy; }
+      cx = x; cy = y; sx = x; sy = y;
+      cur = { segs: [{ t: "M", p: [x, y] }], closed: false }; subs.push(cur);
+      cmd = rel ? "l" : "L";
+    } else if (!cur) { return { ok: false, subs: [] };
+    } else if (C === "L") {
+      let x = num(), y = num(); if (rel) { x += cx; y += cy; }
+      cur.segs.push({ t: "L", p: [x, y] }); cx = x; cy = y;
+    } else if (C === "H") {
+      let x = num(); if (rel) x += cx;
+      cur.segs.push({ t: "L", p: [x, cy] }); cx = x;
+    } else if (C === "V") {
+      let y = num(); if (rel) y += cy;
+      cur.segs.push({ t: "L", p: [cx, y] }); cy = y;
+    } else if (C === "C") {
+      let a = num(), b = num(), c = num(), d2 = num(), x = num(), y = num();
+      if (rel) { a += cx; b += cy; c += cx; d2 += cy; x += cx; y += cy; }
+      cur.segs.push({ t: "C", c1: [a, b], c2: [c, d2], p: [x, y] }); cx = x; cy = y;
+    } else if (C === "Q") {
+      let a = num(), b = num(), x = num(), y = num();
+      if (rel) { a += cx; b += cy; x += cx; y += cy; }
+      cur.segs.push({ t: "C", c1: [cx + 2 / 3 * (a - cx), cy + 2 / 3 * (b - cy)], c2: [x + 2 / 3 * (a - x), y + 2 / 3 * (b - y)], p: [x, y] });
+      cx = x; cy = y;
+    } else return { ok: false, subs: [] };
+  }
+  return { ok: subs.length > 0, subs };
+}
+
+function flattenSub(sub, n = 16) {
+  const out = []; let cur = null;
+  for (const s of sub.segs) {
+    if (s.t === "M" || s.t === "L") { out.push(s.p); cur = s.p; }
+    else {
+      const [x0, y0] = cur, [x1, y1] = s.c1, [x2, y2] = s.c2, [x3, y3] = s.p;
+      for (let k = 1; k <= n; k++) {
+        const t = k / n, u = 1 - t;
+        out.push([u*u*u*x0 + 3*u*u*t*x1 + 3*u*t*t*x2 + t*t*t*x3, u*u*u*y0 + 3*u*u*t*y1 + 3*u*t*t*y2 + t*t*t*y3]);
+      }
+      cur = s.p;
+    }
+  }
+  return out;
+}
+
+function serializeSub(sub) {
+  let s = "";
+  for (const g of sub.segs) {
+    if (g.t === "M") s += "M " + fmt(g.p[0]) + " " + fmt(g.p[1]);
+    else if (g.t === "L") s += " L " + fmt(g.p[0]) + " " + fmt(g.p[1]);
+    else s += " C " + fmt(g.c1[0]) + " " + fmt(g.c1[1]) + " " + fmt(g.c2[0]) + " " + fmt(g.c2[1]) + " " + fmt(g.p[0]) + " " + fmt(g.p[1]);
+  }
+  return s + " z";
+}
+
+function polyBBox(poly) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of poly) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return [x0, y0, x1, y1];
+}
+function polyArea(poly) {
+  let a = 0;
+  for (let i = 0, n = poly.length; i < n; i++) { const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % n]; a += x1 * y2 - x2 * y1; }
+  return Math.abs(a) / 2;
+}
+function pointInPoly(x, y, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function allInside(pts, poly) {
+  for (const [x, y] of pts) if (!pointInPoly(x, y, poly)) return false;
+  return true;
+}
+function anyInside(pts, poly) {
+  for (const [x, y] of pts) if (pointInPoly(x, y, poly)) return true;
+  return false;
+}
+const bboxOverlap = (a, b) => !(a[2] < b[0] || a[0] > b[2] || a[3] < b[1] || a[1] > b[3]);
+const bboxInside = (a, b, e = 0.5) => a[0] >= b[0] - e && a[1] >= b[1] - e && a[2] <= b[2] + e && a[3] <= b[3] + e;
+
+const IDENT_TR = /^\s*translate\(\s*0(?:[\s,]+0)?\s*\)\s*$/;
+
+// Siapkan geometri tiap item: {d, attrs:{fill,...}}
+function prepare(items) {
+  for (const it of items) {
+    const tr = it.attrs.transform;
+    const trivial = !tr || IDENT_TR.test(tr);
+    const pp = trivial ? parsePath(it.d) : { ok: false, subs: [] };
+    if (pp.ok) {
+      const poly = flattenSub(pp.subs[0]);
+      it.geo = { subs: pp.subs, poly, bbox: polyBBox(poly), area: polyArea(poly), multi: pp.subs.length > 1 };
+    } else it.geo = null;
+  }
+}
+
+function getFill(it) { return it.attrs.fill || ((it.attrs.style || "").match(/fill\s*:\s*([^;]+)/) || [])[1] || ""; }
+
+function findBgRects(items, vb) {
+  const out = [];
+  items.forEach((it, i) => {
+    const g = it.geo; if (!g || g.multi) return;
+    const [x0, y0, x1, y1] = g.bbox, w = vb[2], h = vb[3], e = 0.01;
+    const covers = x0 <= vb[0] + w * e && y0 <= vb[1] + h * e && x1 >= vb[0] + w * (1 - e) && y1 >= vb[1] + h * (1 - e);
+    const bboxA = (x1 - x0) * (y1 - y0);
+    if (covers && g.poly.length <= 8 && g.area / bboxA > 0.99) out.push(i);
+  });
+  return out;
+}
+
+function findCandidates(items, bgIdxs, bgColor, tol = 8) {
+  if (!bgColor) return [];
+  const out = [];
+  items.forEach((it, i) => {
+    if (bgIdxs.includes(i) || !it.geo || it.geo.multi || it.geo.area < 4) return;
+    const c = parseColor(getFill(it));
+    if (c && Math.max(Math.abs(c[0] - bgColor[0]), Math.abs(c[1] - bgColor[1]), Math.abs(c[2] - bgColor[2])) <= tol) out.push(i);
+  });
+  return out;
+}
+
+// Hubungan geometri H (lubang) terhadap P (path di bawahnya)
+function relation(H, P) {
+  if (!bboxOverlap(H.bbox, P.bbox)) return "none";
+  if (bboxInside(H.bbox, P.bbox) && allInside(H.poly, P.poly)) return "contains";
+  if (bboxInside(P.bbox, H.bbox) && allInside(P.poly, H.poly)) return "covered";
+  if (anyInside(H.poly, P.poly) || anyInside(P.poly, H.poly)) return "partial";
+  return "none";
+}
+
+// opts: {removeBg, stripTranslate, flattenGradients}; ctx: {bgIdxs, gradients:{id:[[r,g,b],...]}}
+function processItems(items, opts, ctx, holes) {
+  const warnings = [], keep = items.map(() => true), extra = items.map(() => []);
+  const holeSet = new Set(holes);
+  if (opts.removeBg) ctx.bgIdxs.forEach((i) => (keep[i] = false));
+  let cuts = 0, removedCovered = 0;
+  [...holes].sort((a, b) => a - b).forEach((h) => {
+    const H = items[h].geo;
+    if (!H || H.multi) { warnings.push("Bentuk #" + h + " tidak bisa dilubangi (geometri tidak didukung)."); return; }
+    keep[h] = false;
+    let cutHere = 0;
+    for (let i = 0; i < h; i++) {
+      if (!keep[i]) continue; // path yang sudah dibuang (latar / lubang lain) tidak perlu dilubangi
+      const P = items[i].geo;
+      if (!P) continue;
+      const rel = relation(H, P);
+      if (rel === "contains") {
+        if (P.multi) { warnings.push("Path #" + i + " punya beberapa sub-path, dilewati saat melubangi #" + h + "."); continue; }
+        extra[i].push(serializeSub(H.subs[0])); cutHere++; cuts++;
+      } else if (rel === "covered") {
+        if (keep[i]) { keep[i] = false; removedCovered++; }
+      } else if (rel === "partial") {
+        warnings.push("Path #" + i + " tumpang tindih sebagian dengan lubang #" + h + ". Lubang mungkin tidak bersih di tepinya.");
+      }
+    }
+    if (cutHere === 0) warnings.push("Lubang #" + h + " tidak menemukan path di bawahnya yang bisa dilubangi. Hasilnya mungkin tidak berubah.");
+  });
+
+  const out = []; const usedUrls = new Set(); let flattened = 0;
+  items.forEach((it, i) => {
+    if (!keep[i]) return;
+    const attrs = Object.assign({}, it.attrs);
+    if (opts.stripTranslate && attrs.transform && IDENT_TR.test(attrs.transform)) delete attrs.transform;
+    let f = attrs.fill || "";
+    const um = f.match(/^url\(\s*#([^)]+)\)$/);
+    if (um) {
+      const stops = ctx.gradients[um[1]];
+      if (opts.flattenGradients && stops && stops.length) {
+        const avg = [0, 1, 2].map((k) => Math.round(stops.reduce((s, c) => s + c[k], 0) / stops.length));
+        attrs.fill = "rgb(" + avg.join(",") + ")"; flattened++;
+      } else usedUrls.add(um[1]);
+    }
+    let d = it.d;
+    if (extra[i].length) { d = d + " " + extra[i].join(" "); attrs["fill-rule"] = "evenodd"; }
+    out.push({ attrs, d, src: i });
+  });
+  return { out, warnings, usedUrls, stats: { cuts, removedCovered, flattened, kept: out.length, total: items.length } };
+}
+
+function escAttr(v) { return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
+function attrStr(a) { return Object.keys(a).map((k) => k + '="' + escAttr(a[k]) + '"').join(" "); }
+function pathMarkup(o) { return "<path " + attrStr(o.attrs) + ' d="' + escAttr(o.d) + '"/>'; }
+function buildSvg(rootAttrs, defsXml, res) {
+  const defs = res.usedUrls.size && defsXml ? defsXml + "\n" : "";
+  return "<svg " + rootAttrs + ">\n" + defs + res.out.map(pathMarkup).join("\n") + "\n</svg>\n";
+}
+// ==CORE-END==
+
+// ================= UI =================
+const $ = (id) => document.getElementById(id);
+const S = { items: [], vb: [0, 0, 100, 100], rootAttrs: "", defsXml: "", gradients: {}, bgIdxs: [], bgColor: null, cands: [], holes: new Set(), name: "gambar", res: null, svgText: "" };
+
+const dropzone = $("dropzone"), fileInput = $("fileInput"), work = $("work"), errBox = $("error");
+dropzone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => fileInput.files[0] && readFile(fileInput.files[0]));
+["dragenter", "dragover"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("drag"); }));
+["dragleave", "drop"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); }));
+dropzone.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+function showError(msg) { errBox.textContent = msg; errBox.classList.remove("hidden"); }
+
+async function readFile(file) {
+  errBox.classList.add("hidden");
+  try {
+    const text = await file.text();
+    S.name = file.name.replace(/\.svg$/i, "");
+    loadSvg(text);
+  } catch (e) { console.error(e); showError("Gagal membaca file: " + (e.message || e)); }
+}
+
+function loadSvg(text) {
+  const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+  if (doc.querySelector("parsererror")) throw new Error("File bukan SVG yang valid.");
+  const root = doc.documentElement;
+  if (root.localName !== "svg") throw new Error("File bukan SVG.");
+
+  const items = [], gradients = {}; let defsXml = ""; const bad = new Set();
+  for (const el of Array.from(root.children)) {
+    const n = el.localName;
+    if (n === "path") {
+      const attrs = {};
+      for (const a of Array.from(el.attributes)) if (a.name !== "d") attrs[a.name] = a.value;
+      items.push({ d: el.getAttribute("d") || "", attrs });
+    } else if (n === "defs") {
+      defsXml += new XMLSerializer().serializeToString(el);
+      el.querySelectorAll("linearGradient, radialGradient").forEach((g) => {
+        const stops = Array.from(g.querySelectorAll("stop")).map((s) => parseColor(s.getAttribute("stop-color") || (s.getAttribute("style") || "").replace(/.*stop-color\s*:\s*([^;]+).*/, "$1"))).filter(Boolean);
+        if (g.id) gradients[g.id] = stops;
+      });
+    } else if (!["title", "desc", "metadata"].includes(n)) bad.add(n);
+  }
+  if (bad.size) throw new Error("SVG ini berisi elemen yang belum didukung: " + Array.from(bad).join(", ") + ". Halaman ini khusus SVG berisi <path>.");
+  if (!items.length) throw new Error("Tidak ada <path> di SVG ini.");
+
+  let vb = (root.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  if (vb.length !== 4 || vb.some(isNaN)) {
+    const w = parseFloat(root.getAttribute("width")), h = parseFloat(root.getAttribute("height"));
+    if (!(w > 0 && h > 0)) throw new Error("SVG tidak punya viewBox atau width/height yang jelas.");
+    vb = [0, 0, w, h];
+  }
+  const rootAttrs = Array.from(root.attributes).map((a) => a.name + '="' + escAttr(a.value) + '"').join(" ");
+
+  prepare(items);
+  Object.assign(S, { items, vb, rootAttrs, defsXml, gradients, svgText: text, holes: new Set() });
+  S.bgIdxs = findBgRects(items, vb);
+  S.bgColor = S.bgIdxs.length ? parseColor(getFill(items[S.bgIdxs[0]])) : null;
+  S.cands = findCandidates(items, S.bgIdxs, S.bgColor);
+
+  $("bgInfo").textContent = S.bgIdxs.length ? "Ditemukan " + S.bgIdxs.length + " path persegi penuh (warna " + getFill(items[S.bgIdxs[0]]) + ")." : "Tidak ditemukan path latar penuh.";
+  $("optBg").checked = S.bgIdxs.length > 0; $("optBg").disabled = !S.bgIdxs.length;
+  $("manualBg").classList.toggle("hidden", S.bgIdxs.length > 0);
+  $("optGradWrap").classList.toggle("hidden", !Object.keys(gradients).length);
+  $("bgHex").value = "";
+
+  dropzone.classList.add("hidden"); work.classList.remove("hidden");
+  render();
+}
+
+function options() { return { removeBg: $("optBg").checked, stripTranslate: $("optTr").checked, flattenGradients: $("optGrad").checked }; }
+
+function render() {
+  const res = processItems(S.items, options(), { bgIdxs: S.bgIdxs, gradients: S.gradients }, Array.from(S.holes));
+  S.res = res;
+  const inner = res.out.map(pathMarkup).join("");
+  const defs = res.usedUrls.size ? S.defsXml : "";
+  const vbStr = S.vb.join(" ");
+
+  const overlay = (c) => {
+    const sel = S.holes.has(c);
+    const d = S.items[c].d;
+    return '<path d="' + escAttr(d) + '" fill="' + (sel ? "rgba(46,229,157,.16)" : "rgba(255,45,149,.10)") + '" stroke="' + (sel ? "#2ee59d" : "#ff2d95") +
+      '" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" data-c="' + c + '" style="cursor:pointer;pointer-events:all"/>';
+  };
+  $("stage").innerHTML = '<svg viewBox="' + vbStr + '" xmlns="http://www.w3.org/2000/svg">' + defs + inner + S.cands.map(overlay).join("") + "</svg>";
+
+  // kartu kandidat
+  const box = $("cands"); box.innerHTML = "";
+  $("candCount").textContent = S.cands.length ? "(" + S.cands.length + ")" : "";
+  $("noCands").classList.toggle("hidden", S.cands.length > 0);
+  const bgMode = document.querySelector("[data-bg].on").dataset.bg;
+  S.cands.forEach((c, n) => {
+    const g = S.items[c].geo, [x0, y0, x1, y1] = g.bbox, w = x1 - x0, h = y1 - y0, pad = Math.max(w, h) * 0.7 + 8;
+    const vbT = [x0 - pad, y0 - pad, w + 2 * pad, h + 2 * pad].map((v) => +v.toFixed(2)).join(" ");
+    const sel = S.holes.has(c);
+    const card = document.createElement("div"); card.className = "cand";
+    card.innerHTML = '<div class="stage ' + bgMode + '"><svg viewBox="' + vbT + '" xmlns="http://www.w3.org/2000/svg">' + inner + overlay(c) + "</svg></div>" +
+      '<div class="meta">Bentuk #' + c + " · " + Math.round(g.area) + " px²</div>" +
+      '<div class="seg"><button data-c="' + c + '" data-act="keep" class="' + (!sel ? "on" : "") + '">Pertahankan</button><button data-c="' + c + '" data-act="hole" class="' + (sel ? "on" : "") + '">Lubangi</button></div>';
+    box.appendChild(card);
+  });
+
+  // statistik
+  const st = res.stats, svg = buildSvg(S.rootAttrs, S.defsXml, res);
+  S.out = svg;
+  const kb = (n) => (n / 1024).toFixed(1) + " KB";
+  $("stats").innerHTML = "Path: " + st.total + " → <b>" + st.kept + "</b> · Ukuran: " + kb(S.svgText.length) + " → <b>" + kb(svg.length) + "</b>" +
+    "<br>Lubang dibuat: " + S.holes.size + " (potongan di " + st.cuts + " path)" + (st.removedCovered ? " · path tertutup lubang dibuang: " + st.removedCovered : "") +
+    (st.flattened ? " · gradien diratakan: " + st.flattened : "");
+  $("warns").innerHTML = res.warnings.map((w) => "<li>" + w.replace(/</g, "&lt;") + "</li>").join("");
+}
+
+document.addEventListener("click", (e) => {
+  const bgBtn = e.target.closest("[data-bg]");
+  if (bgBtn) {
+    document.querySelectorAll("[data-bg]").forEach((b) => b.classList.toggle("on", b === bgBtn));
+    $("stage").className = "stage " + bgBtn.dataset.bg; render(); return;
+  }
+  const t = e.target.closest("[data-c]");
+  if (t && !work.classList.contains("hidden")) {
+    const c = +t.dataset.c, act = t.dataset.act;
+    if (act === "hole") S.holes.add(c); else if (act === "keep") S.holes.delete(c);
+    else if (S.holes.has(c)) S.holes.delete(c); else S.holes.add(c);
+    render();
+  }
+});
+["optBg", "optTr", "optGrad"].forEach((id) => $(id).addEventListener("change", render));
+$("allHole").addEventListener("click", () => { S.cands.forEach((c) => S.holes.add(c)); render(); });
+$("allKeep").addEventListener("click", () => { S.holes.clear(); render(); });
+$("bgHex").addEventListener("change", () => {
+  const c = parseColor($("bgHex").value);
+  S.bgColor = c; S.cands = findCandidates(S.items, S.bgIdxs, c); S.holes.clear(); render();
+});
+
+$("btnDownload").addEventListener("click", () => {
+  const url = URL.createObjectURL(new Blob([S.out], { type: "image/svg+xml" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: S.name + "-bersih.svg" });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+$("btnCopy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(S.out);
+  $("btnCopy").textContent = "Tersalin ✓"; setTimeout(() => ($("btnCopy").textContent = "Salin kode"), 1500);
+});
+$("btnReset").addEventListener("click", () => {
+  fileInput.value = ""; work.classList.add("hidden"); dropzone.classList.remove("hidden"); errBox.classList.add("hidden");
+});
+</script>
+</body>
+</html>
