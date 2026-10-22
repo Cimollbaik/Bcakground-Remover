@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SVG Cleaner – Latar Transparan Bersih</title>
 <style>
-  :root { --bg:#12141a; --panel:#1c1f28; --line:#2c3040; --text:#e8eaf0; --muted:#8b91a5; --accent:#7c9cff; --ok:#2ee59d; --warn:#ffb454; --pink:#ff2d95; }
+  :root { --bg:#12141a; --panel:#1c1f28; --line:#2c3040; --text:#e8eaf0; --muted:#8b91a5; --accent:#7c9cff; --ok:#2ee59d; --warn:#ffb454; --pink:#ff2d95; --err:#ff8a8a; }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body { background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -18,6 +18,7 @@
   button.primary { background: var(--accent); border-color: var(--accent); color: #0b1020; font-weight: 600; }
   button.small { padding: 5px 12px; font-size: 13px; }
   button:hover { filter: brightness(1.12); }
+  button:disabled { opacity: .4; cursor: default; }
   button.on { background: var(--ok); border-color: var(--ok); color: #05261a; font-weight: 600; }
 
   #dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed var(--line); border-radius: 16px; text-align: center; transition: .15s; cursor: pointer; padding: 48px 24px; }
@@ -31,9 +32,11 @@
   @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .spacer { flex: 1; }
-  label.opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
+  label.opt { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; cursor: pointer; }
   label.opt input { margin-top: 5px; }
   label.opt small { display: block; color: var(--muted); }
+  .settings { display: grid; grid-template-columns: 1.3fr 1fr; gap: 6px 24px; }
+  @media (max-width: 860px) { .settings { grid-template-columns: 1fr; } }
 
   .stage { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
   .stage.checker { background-color: #fff; background-image: linear-gradient(45deg,#d9d9e0 25%,transparent 25%,transparent 75%,#d9d9e0 75%),linear-gradient(45deg,#d9d9e0 25%,transparent 25%,transparent 75%,#d9d9e0 75%); background-size: 24px 24px; background-position: 0 0, 12px 12px; }
@@ -41,81 +44,125 @@
   .stage.dark { background: #15161b; }
   .stage svg { display: block; width: 100%; height: auto; }
 
-  .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .cand { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #181b23; }
+  .cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .cand { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #181b23; min-width: 0; }
   .cand .stage { margin-bottom: 8px; }
-  .cand .meta { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-  .cand .seg { display: flex; gap: 6px; }
-  .cand .seg button { flex: 1; padding: 6px 4px; font-size: 13px; }
+  .cand .meta { color: var(--muted); font-size: 12px; }
+  .cand .why { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .cand .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .cand .seg button { min-width: 0; padding: 6px 2px; font-size: 12.5px; white-space: nowrap; }
+  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; margin: 3px 0; }
+  .badge.hole { background: rgba(46,229,157,.15); color: var(--ok); }
+  .badge.keep { background: rgba(255,45,149,.14); color: #ff7ac0; }
+  .badge.unsure { background: rgba(255,180,84,.16); color: var(--warn); }
+
+  .frow { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,2fr) auto auto auto; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+  .frow:last-child { border-bottom: 0; }
+  .fname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fmeta { color: var(--muted); font-size: 13px; }
+  @media (max-width: 700px) { .frow { grid-template-columns: 1fr auto auto; } .fmeta { grid-column: 1 / -1; order: 5; } }
+  .chip { font-size: 12px; padding: 2px 10px; border-radius: 999px; }
+  .chip.ok { background: rgba(46,229,157,.15); color: var(--ok); }
+  .chip.warn { background: rgba(255,180,84,.16); color: var(--warn); }
+  .chip.err { background: rgba(255,138,138,.16); color: var(--err); }
 
   .warns { margin: 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
   .stats { color: var(--muted); font-size: 13px; }
-  #error { color: #ff8a8a; text-align: center; padding: 12px; }
+  #error { color: var(--err); text-align: center; padding: 12px; }
+  #progress { text-align: center; color: var(--muted); }
   .hint { color: var(--muted); font-size: 13px; }
-  pre { margin: 0; max-height: 220px; overflow: auto; padding: 12px; background: #101218; border-radius: 8px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
 </style>
 </head>
 <body>
-<header><h1>SVG Cleaner</h1><span>Hapus path latar · lubangi bentuk krem sisa · 100% di perangkatmu</span></header>
+<header><h1>SVG Cleaner</h1><span>Hapus path latar · lubangi celah · proses banyak file · 100% di perangkatmu</span></header>
 
 <main>
   <div id="dropzone">
     <div class="icon">🧹</div>
     <strong>Tarik &amp; lepas file SVG di sini</strong>
-    <span>atau ketuk untuk memilih file</span>
+    <span>atau ketuk untuk memilih (boleh banyak sekaligus)</span>
     <small>Khusus SVG berisi &lt;path&gt;, seperti hasil auto-trace</small>
-    <input id="fileInput" type="file" accept=".svg,image/svg+xml" hidden>
+    <input id="fileInput" type="file" accept=".svg,image/svg+xml" multiple hidden>
   </div>
   <div id="error" class="hidden"></div>
+  <div id="progress" class="card hidden"></div>
 
-  <div id="work" class="hidden">
-    <div class="layout">
-      <div>
+  <div id="app" class="hidden">
+    <div class="card">
+      <h2>Pengaturan (berlaku untuk semua file)</h2>
+      <div class="settings">
+        <div>
+          <label class="opt"><input type="radio" name="mode" value="auto" checked><span>Otomatis (disarankan)<small>Celah yang yakin lubang dilubangi. Detail putih (mata, gigi, kilau, sol sepatu) dipertahankan. Yang ragu ditandai untuk dicek.</small></span></label>
+          <label class="opt"><input type="radio" name="mode" value="bgonly"><span>Hapus latar saja<small>Semua bentuk krem dipertahankan. Paling aman, tapi lubang tetap terisi krem.</small></span></label>
+          <label class="opt"><input type="checkbox" id="optUnsure"><span>Yang ragu: lubangi juga<small>Biasanya lebih baik dicek manual.</small></span></label>
+        </div>
+        <div>
+          <label class="opt"><input type="checkbox" id="optBg" checked><span>Hapus path latar persegi</span></label>
+          <label class="opt"><input type="checkbox" id="optTr" checked><span>Buang <code>translate(0,0)</code> yang mubazir</span></label>
+          <label class="opt"><input type="checkbox" id="optGrad" checked><span>Ratakan gradien jadi warna flat<small>Lebih aman saat dikonversi ke EPS</small></span></label>
+        </div>
+      </div>
+    </div>
+
+    <div id="listView">
+      <div class="card">
+        <div class="row" style="margin-bottom:8px">
+          <h2 style="margin:0">Daftar file</h2><span class="spacer"></span>
+          <button class="small" id="btnAdd">+ Tambah file</button>
+          <button class="small" id="btnClear">Hapus semua</button>
+        </div>
+        <div id="sumLine" class="stats" style="margin-bottom:8px"></div>
+        <div id="flist"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="btnZip">⬇ Download semua (ZIP)</button>
+          <span class="hint">File bertanda "Perlu cek" tetap ikut terunduh dengan keputusan otomatisnya.</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="reviewView" class="hidden">
+      <div class="row" style="margin-bottom:12px">
+        <button class="small" id="btnBack">← Daftar file</button>
+        <strong id="curName"></strong>
+        <span class="spacer"></span>
+        <button class="small" id="btnNext">Berikutnya yang perlu cek →</button>
+      </div>
+      <div class="layout">
         <div class="card">
           <div class="row">
-            <h2 style="margin:0">Pratinjau hasil</h2>
-            <span class="spacer"></span>
+            <h2 style="margin:0">Pratinjau hasil</h2><span class="spacer"></span>
             <button class="small on" data-bg="checker">Kotak-kotak</button>
             <button class="small" data-bg="white">Putih</button>
             <button class="small" data-bg="dark">Gelap</button>
           </div>
           <div style="height:10px"></div>
           <div id="stage" class="stage checker"></div>
-          <p class="hint" style="margin:8px 0 0">Garis putus-putus = bentuk berwarna latar. Hijau = akan dilubangi (transparan). Merah muda = dipertahankan. Ketuk bentuknya untuk mengganti.</p>
+          <p class="hint" style="margin:8px 0 0">Garis putus-putus = bentuk berwarna latar. Hijau = dilubangi (transparan). Merah muda = dipertahankan. Ketuk bentuknya untuk mengganti.</p>
         </div>
-      </div>
-
-      <div>
-        <div class="card">
-          <h2>Pembersihan</h2>
-          <label class="opt"><input type="checkbox" id="optBg" checked><span>Hapus path latar penuh<small id="bgInfo"></small></span></label>
-          <label class="opt"><input type="checkbox" id="optTr" checked><span>Buang <code>transform="translate(0,0)"</code> yang mubazir</span></label>
-          <label class="opt" id="optGradWrap"><input type="checkbox" id="optGrad" checked><span>Ratakan gradien jadi warna flat<small>Lebih aman saat dikonversi ke EPS</small></span></label>
-          <div id="manualBg" class="hidden" style="margin-top:8px">
-            <div class="hint">Tidak ada path latar penuh. Isi warna latar (hex) jika ingin mencari bentuk krem sisa:</div>
-            <input id="bgHex" placeholder="#fcfbf3" style="margin-top:6px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#101218;color:var(--text);width:140px">
+        <div>
+          <div class="card">
+            <h2>Bentuk berwarna latar <span id="candCount"></span></h2>
+            <div id="manualBg" class="hidden" style="margin-bottom:10px">
+              <div class="hint">Tidak ada path latar persegi yang terdeteksi. Ketik warna latar (hex) jika ingin mencari bentuk krem sisa:</div>
+              <input id="bgHex" placeholder="#fcfbf3" style="margin-top:6px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#101218;color:var(--text);width:140px">
+            </div>
+            <div id="candTools" class="row" style="margin-bottom:10px">
+              <button class="small" id="allHole">Lubangi semua</button>
+              <button class="small" id="allKeep">Pertahankan semua</button>
+              <button class="small" id="btnAutoAgain">Kembali ke saran otomatis</button>
+            </div>
+            <div id="cands" class="cands"></div>
+            <p id="noCands" class="hint hidden">Tidak ada bentuk berwarna latar. Tidak ada yang perlu dilubangi.</p>
           </div>
-        </div>
-
-        <div class="card">
-          <h2>Bentuk berwarna latar <span id="candCount"></span></h2>
-          <p class="hint" style="margin:0 0 10px">Pilih <b>Lubangi</b> untuk bagian yang di gambar aslinya tembus pandang (misalnya lubang cincin atau celah antar lengan). Pilih <b>Pertahankan</b> untuk cat krem yang memang bagian gambar (misalnya putih mata atau gigi).</p>
-          <div class="row" style="margin-bottom:10px">
-            <button class="small" id="allHole">Lubangi semua</button>
-            <button class="small" id="allKeep">Pertahankan semua</button>
-          </div>
-          <div id="cands" class="cands"></div>
-          <p id="noCands" class="hint hidden">Tidak ada bentuk berwarna latar. Tidak ada yang perlu dilubangi.</p>
-        </div>
-
-        <div class="card">
-          <h2>Hasil</h2>
-          <div id="stats" class="stats"></div>
-          <ul id="warns" class="warns"></ul>
-          <div class="row" style="margin-top:12px">
-            <button class="primary" id="btnDownload">⬇ Download SVG bersih</button>
-            <button id="btnCopy">Salin kode</button>
-            <button id="btnReset">↺ File lain</button>
+          <div class="card">
+            <h2>Hasil</h2>
+            <div id="stats" class="stats"></div>
+            <ul id="warns" class="warns"></ul>
+            <div class="row" style="margin-top:12px">
+              <button class="primary" id="btnDownload">⬇ Download SVG bersih</button>
+              <button id="btnCopy">Salin kode</button>
+              <button id="btnReviewed">Tandai sudah dicek</button>
+            </div>
           </div>
         </div>
       </div>
@@ -256,13 +303,24 @@ function prepare(items) {
 function getFill(it) { return it.attrs.fill || ((it.attrs.style || "").match(/fill\s*:\s*([^;]+)/) || [])[1] || ""; }
 
 function findBgRects(items, vb) {
+  // Gabungan bbox semua path = "isi gambar"
+  let U = [Infinity, Infinity, -Infinity, -Infinity];
+  items.forEach((it) => { if (it.geo) { const b = it.geo.bbox; U = [Math.min(U[0], b[0]), Math.min(U[1], b[1]), Math.max(U[2], b[2]), Math.max(U[3], b[3])]; } });
   const out = [];
   items.forEach((it, i) => {
     const g = it.geo; if (!g || g.multi) return;
-    const [x0, y0, x1, y1] = g.bbox, w = vb[2], h = vb[3], e = 0.01;
-    const covers = x0 <= vb[0] + w * e && y0 <= vb[1] + h * e && x1 >= vb[0] + w * (1 - e) && y1 >= vb[1] + h * (1 - e);
-    const bboxA = (x1 - x0) * (y1 - y0);
-    if (covers && g.poly.length <= 8 && g.area / bboxA > 0.99) out.push(i);
+    const [x0, y0, x1, y1] = g.bbox, bw = x1 - x0, bh = y1 - y0;
+    if (bw <= 0 || bh <= 0) return;
+    // 1) bentuknya persegi panjang (boleh punya titik tambahan di sisinya)
+    if (g.area / (bw * bh) < 0.99) return;
+    const e = Math.max(bw, bh) * 0.002 + 0.01;
+    const onEdge = g.poly.every(([x, y]) => Math.min(Math.abs(x - x0), Math.abs(x - x1)) <= e || Math.min(Math.abs(y - y0), Math.abs(y - y1)) <= e);
+    if (!onEdge) return;
+    // 2) menutup seluruh viewBox ATAU seluruh isi gambar (viewBox bisa lebih besar karena padding)
+    const t = 0.01;
+    const coversVB = x0 <= vb[0] + vb[2] * t && y0 <= vb[1] + vb[3] * t && x1 >= vb[0] + vb[2] * (1 - t) && y1 >= vb[1] + vb[3] * (1 - t);
+    const coversArt = x0 <= U[0] + bw * t && y0 <= U[1] + bh * t && x1 >= U[2] - bw * t && y1 >= U[3] - bh * t;
+    if (coversVB || coversArt) out.push(i);
   });
   return out;
 }
@@ -289,13 +347,13 @@ function relation(H, P) {
 
 // opts: {removeBg, stripTranslate, flattenGradients}; ctx: {bgIdxs, gradients:{id:[[r,g,b],...]}}
 function processItems(items, opts, ctx, holes) {
-  const warnings = [], keep = items.map(() => true), extra = items.map(() => []);
+  const warnings = [], keep = items.map(() => true), extra = items.map(() => []); let hard = 0;
   const holeSet = new Set(holes);
   if (opts.removeBg) ctx.bgIdxs.forEach((i) => (keep[i] = false));
   let cuts = 0, removedCovered = 0;
   [...holes].sort((a, b) => a - b).forEach((h) => {
     const H = items[h].geo;
-    if (!H || H.multi) { warnings.push("Bentuk #" + h + " tidak bisa dilubangi (geometri tidak didukung)."); return; }
+    if (!H || H.multi) { warnings.push("Bentuk #" + h + " tidak bisa dilubangi (geometri tidak didukung)."); hard++; return; }
     keep[h] = false;
     let cutHere = 0;
     for (let i = 0; i < h; i++) {
@@ -304,15 +362,15 @@ function processItems(items, opts, ctx, holes) {
       if (!P) continue;
       const rel = relation(H, P);
       if (rel === "contains") {
-        if (P.multi) { warnings.push("Path #" + i + " punya beberapa sub-path, dilewati saat melubangi #" + h + "."); continue; }
+        if (P.multi) { warnings.push("Path #" + i + " punya beberapa sub-path, dilewati saat melubangi #" + h + "."); hard++; continue; }
         extra[i].push(serializeSub(H.subs[0])); cutHere++; cuts++;
       } else if (rel === "covered") {
         if (keep[i]) { keep[i] = false; removedCovered++; }
       } else if (rel === "partial") {
-        warnings.push("Path #" + i + " tumpang tindih sebagian dengan lubang #" + h + ". Lubang mungkin tidak bersih di tepinya.");
+        warnings.push("Path #" + i + " tumpang tindih sebagian dengan lubang #" + h + ". Wajar kalau itu bayangan di bawah celah; cek di pratinjau.");
       }
     }
-    if (cutHere === 0) warnings.push("Lubang #" + h + " tidak menemukan path di bawahnya yang bisa dilubangi. Hasilnya mungkin tidak berubah.");
+    if (cutHere === 0) { warnings.push("Lubang #" + h + " tidak menemukan path di bawahnya yang bisa dilubangi. Hasilnya mungkin tidak berubah."); hard++; }
   });
 
   const out = []; const usedUrls = new Set(); let flattened = 0;
@@ -333,47 +391,128 @@ function processItems(items, opts, ctx, holes) {
     if (extra[i].length) { d = d + " " + extra[i].join(" "); attrs["fill-rule"] = "evenodd"; }
     out.push({ attrs, d, src: i });
   });
-  return { out, warnings, usedUrls, stats: { cuts, removedCovered, flattened, kept: out.length, total: items.length } };
+  return { out, warnings, hard, usedUrls, stats: { cuts, removedCovered, flattened, kept: out.length, total: items.length } };
 }
 
 function escAttr(v) { return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
 function attrStr(a) { return Object.keys(a).map((k) => k + '="' + escAttr(a[k]) + '"').join(" "); }
 function pathMarkup(o) { return "<path " + attrStr(o.attrs) + ' d="' + escAttr(o.d) + '"/>'; }
-function buildSvg(rootAttrs, defsXml, res) {
+function buildSvg(rootAttrs, defsXml, res, extraXml) {
   const defs = res.usedUrls.size && defsXml ? defsXml + "\n" : "";
-  return "<svg " + rootAttrs + ">\n" + defs + res.out.map(pathMarkup).join("\n") + "\n</svg>\n";
+  return "<svg " + rootAttrs + ">\n" + (extraXml || "") + defs + res.out.map(pathMarkup).join("\n") + "\n</svg>\n";
+}
+// ---- Klasifikasi otomatis: lubang atau cat krem? ----
+function lum(c) { return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; }
+const DARK_LUM = 0.18;
+function polyPerimeter(poly) { let p = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; p += Math.hypot(a[0] - b[0], a[1] - b[1]); } return p; }
+function distPtSeg(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+  let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+function minEdgeDist(A, B) { // jarak terdekat antara titik-titik A ke garis tepi B
+  let m = Infinity;
+  for (let i = 0; i < A.length; i += 2) {
+    const [x, y] = A[i];
+    for (let j = 0; j < B.length; j++) { const q = B[j], r = B[(j + 1) % B.length]; const d = distPtSeg(x, y, q[0], q[1], r[0], r[1]); if (d < m) m = d; }
+  }
+  return m;
+}
+
+// Mengembalikan {idx: {decision:'hole'|'keep'|'unsure', reason, metrics}}
+function classifyCandidates(items, bgIdxs, cands, vb) {
+  const out = {}, vbArea = vb[2] * vb[3], bgSet = new Set(bgIdxs);
+  cands.forEach((c) => {
+    const H = items[c].geo;
+    const thick = (2 * H.area) / Math.max(1, polyPerimeter(H.poly));      // tebal rata-rata bentuk
+    // 1) Ada isi yang dilukis di atasnya (pupil, ikon, dsb.)? -> cat krem yang jadi bagian gambar
+    for (let j = c + 1; j < items.length; j++) {
+      const P = items[j].geo;
+      if (!P || bgSet.has(j) || P.area < H.area * 0.02) continue;
+      const rel = relation(H, P);
+      if (rel === "covered" || rel === "partial") { out[c] = { decision: "keep", reason: "ada isi di atasnya (#" + j + ")" }; return; }
+    }
+    // 2) Lapisan di bawah yang memuat penuh bentuk ini
+    const cont = [];
+    for (let i = 0; i < c; i++) {
+      const P = items[i].geo;
+      if (!P || P.multi || bgSet.has(i)) continue;
+      if (relation(H, P) === "contains") cont.push(i);
+    }
+    if (!cont.length) { out[c] = { decision: "keep", reason: "tidak berada di dalam bentuk lain" }; return; }
+    const colors = cont.map((i) => parseColor(getFill(items[i])) || [128, 128, 128]);
+    const coloredCount = colors.filter((col) => lum(col) >= DARK_LUM).length;
+    let sm = cont[0]; cont.forEach((i) => { if (items[i].geo.area < items[sm].geo.area) sm = i; });
+    const smallest = items[sm].geo;
+    const ring = H.area / Math.max(1, smallest.area - H.area);
+    const m = { thick: +thick.toFixed(1), ring: +ring.toFixed(2) };
+    if (!coloredCount) {
+      // hanya garis gelap di sekelilingnya: lubang kalau cukup tebal, kalau tipis kemungkinan sol sepatu/garis putih
+      if (thick >= 14 && H.area >= vbArea * 0.0002) out[c] = { decision: "hole", reason: "celah tebal yang hanya dikelilingi garis gelap", metrics: m };
+      else out[c] = { decision: "keep", reason: "tipis/kecil, kemungkinan detail putih", metrics: m };
+    } else if (ring >= 0.6 && thick >= 14) out[c] = { decision: "hole", reason: "dikelilingi pas seperti cincin", metrics: m };
+    else {
+      const edge = minEdgeDist(H.poly, smallest.poly) / Math.sqrt(H.area); m.edge = +edge.toFixed(2);
+      if ((ring >= 0.05 && edge <= 0.35 && thick >= 14) || ring >= 0.3) out[c] = { decision: "unsure", reason: "mirip lubang, perlu dicek", metrics: m };
+      else out[c] = { decision: "keep", reason: "bagian kecil di dalam bentuk berwarna", metrics: m };
+    }
+  });
+  return out;
+}
+
+// ---- ZIP sederhana (tanpa kompresi, tanpa library) ----
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(buf) { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = CRC_T[(c ^ buf[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function makeZip(entries) {
+  const enc = new TextEncoder(), chunks = [], central = []; let offset = 0;
+  const u16 = (n) => [n & 255, (n >> 8) & 255], u32 = (n) => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+  const now = new Date();
+  const dt = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const tm = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  for (const e of entries) {
+    const name = enc.encode(e.name), crc = crc32(e.data), size = e.data.length;
+    const lh = new Uint8Array([0x50, 0x4b, 3, 4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(tm), ...u16(dt), ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0)]);
+    chunks.push(lh, name, e.data);
+    central.push(new Uint8Array([0x50, 0x4b, 1, 2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(tm), ...u16(dt), ...u32(crc), ...u32(size), ...u32(size), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), name);
+    offset += lh.length + name.length + size;
+  }
+  let cd = 0; central.forEach((c) => (cd += c.length));
+  const end = new Uint8Array([0x50, 0x4b, 5, 6, 0, 0, 0, 0, ...u16(entries.length), ...u16(entries.length), ...u32(cd), ...u32(offset), 0, 0]);
+  return new Blob([...chunks, ...central, end], { type: "application/zip" });
 }
 // ==CORE-END==
 
 // ================= UI =================
 const $ = (id) => document.getElementById(id);
-const S = { items: [], vb: [0, 0, 100, 100], rootAttrs: "", defsXml: "", gradients: {}, bgIdxs: [], bgColor: null, cands: [], holes: new Set(), name: "gambar", res: null, svgText: "" };
+const files = [];      // semua model file
+let cur = null;        // file yang sedang ditinjau
 
-const dropzone = $("dropzone"), fileInput = $("fileInput"), work = $("work"), errBox = $("error");
+const dropzone = $("dropzone"), fileInput = $("fileInput"), errBox = $("error"), app = $("app");
 dropzone.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", () => fileInput.files[0] && readFile(fileInput.files[0]));
+fileInput.addEventListener("change", () => { if (fileInput.files.length) handleFiles(Array.from(fileInput.files)); fileInput.value = ""; });
 ["dragenter", "dragover"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.add("drag"); }));
 ["dragleave", "drop"].forEach((ev) => dropzone.addEventListener(ev, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); }));
-dropzone.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+dropzone.addEventListener("drop", (e) => { if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files)); });
 
 function showError(msg) { errBox.textContent = msg; errBox.classList.remove("hidden"); }
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
-async function readFile(file) {
-  errBox.classList.add("hidden");
-  try {
-    const text = await file.text();
-    S.name = file.name.replace(/\.svg$/i, "");
-    loadSvg(text);
-  } catch (e) { console.error(e); showError("Gagal membaca file: " + (e.message || e)); }
+function settings() {
+  return {
+    opts: { removeBg: $("optBg").checked, stripTranslate: $("optTr").checked, flattenGradients: $("optGrad").checked },
+    mode: document.querySelector("input[name=mode]:checked").value,
+    unsureAsHole: $("optUnsure").checked,
+  };
 }
 
-function loadSvg(text) {
+// ---------- membangun model dari teks SVG ----------
+function buildModel(text, name) {
   const doc = new DOMParser().parseFromString(text, "image/svg+xml");
-  if (doc.querySelector("parsererror")) throw new Error("File bukan SVG yang valid.");
+  if (doc.querySelector("parsererror")) throw new Error("bukan SVG yang valid");
   const root = doc.documentElement;
-  if (root.localName !== "svg") throw new Error("File bukan SVG.");
+  if (root.localName !== "svg") throw new Error("bukan SVG");
 
-  const items = [], gradients = {}; let defsXml = ""; const bad = new Set();
+  const items = [], gradients = {}; let defsXml = "", extraXml = ""; const bad = new Set();
   for (const el of Array.from(root.children)) {
     const n = el.localName;
     if (n === "path") {
@@ -386,112 +525,207 @@ function loadSvg(text) {
         const stops = Array.from(g.querySelectorAll("stop")).map((s) => parseColor(s.getAttribute("stop-color") || (s.getAttribute("style") || "").replace(/.*stop-color\s*:\s*([^;]+).*/, "$1"))).filter(Boolean);
         if (g.id) gradients[g.id] = stops;
       });
-    } else if (!["title", "desc", "metadata"].includes(n)) bad.add(n);
+    } else if (["title", "desc", "metadata"].includes(n)) {
+      extraXml += new XMLSerializer().serializeToString(el) + "\n";   // dipertahankan apa adanya
+    } else bad.add(n);
   }
-  if (bad.size) throw new Error("SVG ini berisi elemen yang belum didukung: " + Array.from(bad).join(", ") + ". Halaman ini khusus SVG berisi <path>.");
-  if (!items.length) throw new Error("Tidak ada <path> di SVG ini.");
+  if (bad.size) throw new Error("berisi elemen yang belum didukung (" + Array.from(bad).join(", ") + ")");
+  if (!items.length) throw new Error("tidak ada <path>");
 
   let vb = (root.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
   if (vb.length !== 4 || vb.some(isNaN)) {
     const w = parseFloat(root.getAttribute("width")), h = parseFloat(root.getAttribute("height"));
-    if (!(w > 0 && h > 0)) throw new Error("SVG tidak punya viewBox atau width/height yang jelas.");
+    if (!(w > 0 && h > 0)) throw new Error("tidak punya viewBox atau width/height");
     vb = [0, 0, w, h];
   }
   const rootAttrs = Array.from(root.attributes).map((a) => a.name + '="' + escAttr(a.value) + '"').join(" ");
 
   prepare(items);
-  Object.assign(S, { items, vb, rootAttrs, defsXml, gradients, svgText: text, holes: new Set() });
-  S.bgIdxs = findBgRects(items, vb);
-  S.bgColor = S.bgIdxs.length ? parseColor(getFill(items[S.bgIdxs[0]])) : null;
-  S.cands = findCandidates(items, S.bgIdxs, S.bgColor);
+  const m = { name, svgText: text, items, vb, rootAttrs, defsXml, extraXml, gradients, holes: new Set(), manual: false, reviewed: false, error: null };
+  m.bgIdxs = findBgRects(items, vb);
+  m.bgColor = m.bgIdxs.length ? parseColor(getFill(items[m.bgIdxs[0]])) : null;
+  m.cands = findCandidates(items, m.bgIdxs, m.bgColor);
+  m.cls = classifyCandidates(items, m.bgIdxs, m.cands, vb);
+  return m;
+}
 
-  $("bgInfo").textContent = S.bgIdxs.length ? "Ditemukan " + S.bgIdxs.length + " path persegi penuh (warna " + getFill(items[S.bgIdxs[0]]) + ")." : "Tidak ditemukan path latar penuh.";
-  $("optBg").checked = S.bgIdxs.length > 0; $("optBg").disabled = !S.bgIdxs.length;
-  $("manualBg").classList.toggle("hidden", S.bgIdxs.length > 0);
-  $("optGradWrap").classList.toggle("hidden", !Object.keys(gradients).length);
+function applyAuto(m) {
+  if (m.error || m.manual) return;
+  const st = settings(); m.holes = new Set();
+  if (st.mode === "auto") m.cands.forEach((c) => { const d = m.cls[c].decision; if (d === "hole" || (d === "unsure" && st.unsureAsHole)) m.holes.add(c); });
+}
+
+function processModel(m) {
+  const st = settings();
+  const res = processItems(m.items, st.opts, { bgIdxs: m.bgIdxs, gradients: m.gradients }, Array.from(m.holes));
+  m.res = res; m.out = buildSvg(m.rootAttrs, m.defsXml, res, m.extraXml);
+  m.pending = m.cands.filter((c) => m.cls[c].decision === "unsure" && !m.holes.has(c)).length;
+  m.needsCheck = !m.reviewed && (m.pending > 0 || res.hard > 0);
+}
+
+// ---------- memuat banyak file ----------
+async function handleFiles(list) {
+  errBox.classList.add("hidden");
+  const prog = $("progress"); prog.classList.remove("hidden");
+  const before = files.length;
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    prog.textContent = "Memproses " + (i + 1) + " / " + list.length + " : " + f.name;
+    await tick();
+    const name = f.name.replace(/\.svg$/i, "");
+    try { files.push(buildModel(await f.text(), name)); }
+    catch (e) { console.error(e); files.push({ name, error: e.message || String(e), holes: new Set(), cands: [], cls: {} }); }
+  }
+  prog.classList.add("hidden");
+  files.slice(before).forEach(applyAuto);
+  dropzone.classList.add("hidden"); app.classList.remove("hidden");
+  const ok = files.filter((m) => !m.error);
+  if (files.length === 1 && ok.length === 1) openReview(0); else showList();
+}
+
+// ---------- tampilan daftar ----------
+function showList() {
+  cur = null; $("reviewView").classList.add("hidden"); $("listView").classList.remove("hidden");
+  renderList();
+}
+
+function renderList() {
+  const box = $("flist"); box.innerHTML = "";
+  let okN = 0, chkN = 0, errN = 0, holeN = 0;
+  files.forEach((m, i) => {
+    const row = document.createElement("div"); row.className = "frow";
+    let chip, meta;
+    if (m.error) { errN++; chip = '<span class="chip err">Gagal</span>'; meta = m.error; }
+    else {
+      processModel(m);
+      const s = m.res.stats; holeN += m.holes.size;
+      meta = "Path " + s.total + " → " + s.kept + " · lubang " + m.holes.size + (m.pending ? " · ragu " + m.pending : "") + (m.bgIdxs.length ? "" : " · tanpa path latar");
+      if (m.needsCheck) { chkN++; chip = '<span class="chip warn">Perlu cek</span>'; } else { okN++; chip = '<span class="chip ok">Bersih</span>'; }
+    }
+    row.innerHTML = '<div class="fname">' + escAttr(m.name) + '</div><div class="fmeta">' + escAttr(meta) + "</div>" + chip +
+      (m.error ? "" : '<button class="small" data-open="' + i + '">Tinjau</button>') + '<button class="small" data-del="' + i + '" title="Hapus">✕</button>';
+    box.appendChild(row);
+  });
+  $("sumLine").innerHTML = "<b>" + files.length + "</b> file · bersih <b>" + okN + "</b> · perlu cek <b>" + chkN + "</b>" + (errN ? " · gagal <b>" + errN + "</b>" : "") + " · total lubang dibuat: " + holeN;
+  $("btnZip").disabled = files.length - errN === 0;
+}
+
+// ---------- tampilan tinjau ----------
+function openReview(i) {
+  cur = files[i];
+  $("listView").classList.add("hidden"); $("reviewView").classList.remove("hidden");
+  $("btnBack").classList.toggle("hidden", files.length < 2);
+  $("btnNext").classList.toggle("hidden", files.length < 2);
+  $("curName").textContent = cur.name;
+  $("manualBg").classList.toggle("hidden", cur.bgIdxs.length > 0);
   $("bgHex").value = "";
-
-  dropzone.classList.add("hidden"); work.classList.remove("hidden");
+  const f0 = parseColor(getFill(cur.items[0]));
+  $("bgHex").placeholder = f0 ? "#" + f0.map((v) => v.toString(16).padStart(2, "0")).join("") : "#fcfbf3";
   render();
 }
 
-function options() { return { removeBg: $("optBg").checked, stripTranslate: $("optTr").checked, flattenGradients: $("optGrad").checked }; }
+const DEC_LABEL = { hole: "Saran: Lubangi", keep: "Saran: Pertahankan", unsure: "Saran: Ragu, cek dulu" };
 
 function render() {
-  const res = processItems(S.items, options(), { bgIdxs: S.bgIdxs, gradients: S.gradients }, Array.from(S.holes));
-  S.res = res;
+  const m = cur; if (!m) return;
+  processModel(m);
+  const res = m.res, st = settings();
   const inner = res.out.map(pathMarkup).join("");
-  const defs = res.usedUrls.size ? S.defsXml : "";
-  const vbStr = S.vb.join(" ");
-
+  const defs = res.usedUrls.size ? m.defsXml : "";
   const overlay = (c) => {
-    const sel = S.holes.has(c);
-    const d = S.items[c].d;
-    return '<path d="' + escAttr(d) + '" fill="' + (sel ? "rgba(46,229,157,.16)" : "rgba(255,45,149,.10)") + '" stroke="' + (sel ? "#2ee59d" : "#ff2d95") +
+    const sel = m.holes.has(c);
+    return '<path d="' + escAttr(m.items[c].d) + '" fill="' + (sel ? "rgba(46,229,157,.16)" : "rgba(255,45,149,.10)") + '" stroke="' + (sel ? "#2ee59d" : "#ff2d95") +
       '" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" data-c="' + c + '" style="cursor:pointer;pointer-events:all"/>';
   };
-  $("stage").innerHTML = '<svg viewBox="' + vbStr + '" xmlns="http://www.w3.org/2000/svg">' + defs + inner + S.cands.map(overlay).join("") + "</svg>";
-
-  // kartu kandidat
-  const box = $("cands"); box.innerHTML = "";
-  $("candCount").textContent = S.cands.length ? "(" + S.cands.length + ")" : "";
-  $("noCands").classList.toggle("hidden", S.cands.length > 0);
   const bgMode = document.querySelector("[data-bg].on").dataset.bg;
-  S.cands.forEach((c, n) => {
-    const g = S.items[c].geo, [x0, y0, x1, y1] = g.bbox, w = x1 - x0, h = y1 - y0, pad = Math.max(w, h) * 0.7 + 8;
+  $("stage").className = "stage " + bgMode;
+  $("stage").innerHTML = '<svg viewBox="' + m.vb.join(" ") + '" xmlns="http://www.w3.org/2000/svg">' + defs + inner + m.cands.map(overlay).join("") + "</svg>";
+
+  const box = $("cands"); box.innerHTML = "";
+  $("candCount").textContent = m.cands.length ? "(" + m.cands.length + ")" : "";
+  $("noCands").classList.toggle("hidden", m.cands.length > 0);
+  $("candTools").classList.toggle("hidden", m.cands.length === 0);
+  const order = { unsure: 0, hole: 1, keep: 2 };
+  m.cands.slice().sort((a, b) => order[m.cls[a].decision] - order[m.cls[b].decision] || a - b).forEach((c) => {
+    const g = m.items[c].geo, [x0, y0, x1, y1] = g.bbox, w = x1 - x0, h = y1 - y0, pad = Math.max(w, h) * 0.7 + 8;
     const vbT = [x0 - pad, y0 - pad, w + 2 * pad, h + 2 * pad].map((v) => +v.toFixed(2)).join(" ");
-    const sel = S.holes.has(c);
+    const sel = m.holes.has(c), cl = m.cls[c];
     const card = document.createElement("div"); card.className = "cand";
     card.innerHTML = '<div class="stage ' + bgMode + '"><svg viewBox="' + vbT + '" xmlns="http://www.w3.org/2000/svg">' + inner + overlay(c) + "</svg></div>" +
-      '<div class="meta">Bentuk #' + c + " · " + Math.round(g.area) + " px²</div>" +
+      '<div class="meta">#' + c + " · " + Math.round(g.area) + ' px²</div><div class="badge ' + cl.decision + '">' + DEC_LABEL[cl.decision] + '</div><div class="why">' + escAttr(cl.reason) + "</div>" +
       '<div class="seg"><button data-c="' + c + '" data-act="keep" class="' + (!sel ? "on" : "") + '">Pertahankan</button><button data-c="' + c + '" data-act="hole" class="' + (sel ? "on" : "") + '">Lubangi</button></div>';
     box.appendChild(card);
   });
 
-  // statistik
-  const st = res.stats, svg = buildSvg(S.rootAttrs, S.defsXml, res);
-  S.out = svg;
-  const kb = (n) => (n / 1024).toFixed(1) + " KB";
-  $("stats").innerHTML = "Path: " + st.total + " → <b>" + st.kept + "</b> · Ukuran: " + kb(S.svgText.length) + " → <b>" + kb(svg.length) + "</b>" +
-    "<br>Lubang dibuat: " + S.holes.size + " (potongan di " + st.cuts + " path)" + (st.removedCovered ? " · path tertutup lubang dibuang: " + st.removedCovered : "") +
-    (st.flattened ? " · gradien diratakan: " + st.flattened : "");
+  const s = res.stats, kb = (n) => (n / 1024).toFixed(1) + " KB";
+  $("stats").innerHTML = "Path: " + s.total + " → <b>" + s.kept + "</b> · Ukuran: " + kb(m.svgText.length) + " → <b>" + kb(m.out.length) + "</b>" +
+    "<br>Lubang dibuat: " + m.holes.size + " (potongan di " + s.cuts + " path)" + (s.removedCovered ? " · path tertutup lubang dibuang: " + s.removedCovered : "") + (s.flattened ? " · gradien diratakan: " + s.flattened : "");
   $("warns").innerHTML = res.warnings.map((w) => "<li>" + w.replace(/</g, "&lt;") + "</li>").join("");
+  $("btnReviewed").textContent = m.reviewed ? "✓ Sudah dicek" : "Tandai sudah dicek";
+  $("btnReviewed").classList.toggle("on", m.reviewed);
+}
+
+function setHole(c, on) {
+  cur.manual = true; cur.reviewed = true;
+  if (on) cur.holes.add(c); else cur.holes.delete(c);
+  render();
 }
 
 document.addEventListener("click", (e) => {
-  const bgBtn = e.target.closest("[data-bg]");
-  if (bgBtn) {
-    document.querySelectorAll("[data-bg]").forEach((b) => b.classList.toggle("on", b === bgBtn));
-    $("stage").className = "stage " + bgBtn.dataset.bg; render(); return;
+  const t = e.target;
+  const bgBtn = t.closest("[data-bg]");
+  if (bgBtn) { document.querySelectorAll("[data-bg]").forEach((b) => b.classList.toggle("on", b === bgBtn)); render(); return; }
+  const op = t.closest("[data-open]"); if (op) { openReview(+op.dataset.open); return; }
+  const del = t.closest("[data-del]");
+  if (del) { files.splice(+del.dataset.del, 1); if (!files.length) resetAll(); else renderList(); return; }
+  const cb = t.closest("[data-c]");
+  if (cb && cur && !$("reviewView").classList.contains("hidden")) {
+    const c = +cb.dataset.c, act = cb.dataset.act;
+    setHole(c, act === "hole" ? true : act === "keep" ? false : !cur.holes.has(c));
   }
-  const t = e.target.closest("[data-c]");
-  if (t && !work.classList.contains("hidden")) {
-    const c = +t.dataset.c, act = t.dataset.act;
-    if (act === "hole") S.holes.add(c); else if (act === "keep") S.holes.delete(c);
-    else if (S.holes.has(c)) S.holes.delete(c); else S.holes.add(c);
-    render();
-  }
-});
-["optBg", "optTr", "optGrad"].forEach((id) => $(id).addEventListener("change", render));
-$("allHole").addEventListener("click", () => { S.cands.forEach((c) => S.holes.add(c)); render(); });
-$("allKeep").addEventListener("click", () => { S.holes.clear(); render(); });
-$("bgHex").addEventListener("change", () => {
-  const c = parseColor($("bgHex").value);
-  S.bgColor = c; S.cands = findCandidates(S.items, S.bgIdxs, c); S.holes.clear(); render();
 });
 
-$("btnDownload").addEventListener("click", () => {
-  const url = URL.createObjectURL(new Blob([S.out], { type: "image/svg+xml" }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: S.name + "-bersih.svg" });
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+function onSettingsChange() {
+  files.forEach(applyAuto);
+  if (cur) render(); else renderList();
+}
+document.querySelectorAll("input[name=mode], #optUnsure, #optBg, #optTr, #optGrad").forEach((el) => el.addEventListener("change", onSettingsChange));
+
+$("allHole").addEventListener("click", () => { cur.manual = true; cur.reviewed = true; cur.cands.forEach((c) => cur.holes.add(c)); render(); });
+$("allKeep").addEventListener("click", () => { cur.manual = true; cur.reviewed = true; cur.holes.clear(); render(); });
+$("btnAutoAgain").addEventListener("click", () => { cur.manual = false; cur.reviewed = false; applyAuto(cur); render(); });
+$("btnReviewed").addEventListener("click", () => { cur.reviewed = !cur.reviewed; render(); });
+$("bgHex").addEventListener("change", () => {
+  const c = parseColor($("bgHex").value);
+  cur.bgColor = c; cur.cands = findCandidates(cur.items, cur.bgIdxs, c); cur.cls = classifyCandidates(cur.items, cur.bgIdxs, cur.cands, cur.vb);
+  cur.manual = false; applyAuto(cur); render();
 });
-$("btnCopy").addEventListener("click", async () => {
-  await navigator.clipboard.writeText(S.out);
-  $("btnCopy").textContent = "Tersalin ✓"; setTimeout(() => ($("btnCopy").textContent = "Salin kode"), 1500);
+$("btnBack").addEventListener("click", showList);
+$("btnNext").addEventListener("click", () => {
+  const i0 = files.indexOf(cur);
+  for (let k = 1; k <= files.length; k++) { const j = (i0 + k) % files.length; const m = files[j]; if (!m.error) { processModel(m); if (m.needsCheck) { openReview(j); return; } } }
+  showList();
 });
-$("btnReset").addEventListener("click", () => {
-  fileInput.value = ""; work.classList.add("hidden"); dropzone.classList.remove("hidden"); errBox.classList.add("hidden");
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+$("btnDownload").addEventListener("click", () => saveBlob(new Blob([cur.out], { type: "image/svg+xml" }), cur.name + "-bersih.svg"));
+$("btnCopy").addEventListener("click", async () => { await navigator.clipboard.writeText(cur.out); $("btnCopy").textContent = "Tersalin ✓"; setTimeout(() => ($("btnCopy").textContent = "Salin kode"), 1500); });
+$("btnZip").addEventListener("click", () => {
+  const used = new Set(), enc = new TextEncoder(), entries = [];
+  files.forEach((m) => {
+    if (m.error) return; processModel(m);
+    let n = m.name + "-bersih.svg", k = 2; while (used.has(n)) n = m.name + "-bersih (" + k++ + ").svg"; used.add(n);
+    entries.push({ name: n, data: enc.encode(m.out) });
+  });
+  saveBlob(makeZip(entries), "svg-bersih.zip");
 });
+$("btnAdd").addEventListener("click", () => fileInput.click());
+function resetAll() { files.length = 0; cur = null; app.classList.add("hidden"); dropzone.classList.remove("hidden"); errBox.classList.add("hidden"); }
+$("btnClear").addEventListener("click", resetAll);
 </script>
 </body>
 </html>
