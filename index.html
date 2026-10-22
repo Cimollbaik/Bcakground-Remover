@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SVG Cleaner – Latar Transparan Bersih</title>
 <style>
-  :root { --bg:#12141a; --panel:#1c1f28; --line:#2c3040; --text:#e8eaf0; --muted:#8b91a5; --accent:#7c9cff; --ok:#2ee59d; --warn:#ffb454; --pink:#ff2d95; --err:#ff8a8a; }
+  :root { color-scheme: dark; --bg:#12141a; --panel:#1c1f28; --line:#2c3040; --text:#e8eaf0; --muted:#8b91a5; --accent:#7c9cff; --ok:#2ee59d; --warn:#ffb454; --pink:#ff2d95; --err:#ff8a8a; }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body { background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -40,6 +40,10 @@
 
   .stage { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
   .stage.checker { background-color: #fff; background-image: linear-gradient(45deg,#d9d9e0 25%,transparent 25%,transparent 75%,#d9d9e0 75%),linear-gradient(45deg,#d9d9e0 25%,transparent 25%,transparent 75%,#d9d9e0 75%); background-size: 24px 24px; background-position: 0 0, 12px 12px; }
+  #stage { touch-action: none; }
+  .card.fs { position: fixed; inset: 0; z-index: 50; margin: 0; border-radius: 0; display: flex; flex-direction: column; overflow: auto; }
+  .card.fs #stage { flex: 1; min-height: 0; }
+  .card.fs #stage svg { width: 100%; height: 100%; }
   .stage.white { background: #fff; }
   .stage.dark { background: #15161b; }
   .stage svg { display: block; width: 100%; height: auto; }
@@ -49,7 +53,7 @@
   .cand .stage { margin-bottom: 8px; }
   .cand .meta { color: var(--muted); font-size: 12px; }
   .cand .why { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-  .cand .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .cand .seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 6px; }
   .cand .seg button { min-width: 0; padding: 6px 2px; font-size: 12.5px; white-space: nowrap; }
   .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; margin: 3px 0; }
   .badge.hole { background: rgba(46,229,157,.15); color: var(--ok); }
@@ -89,12 +93,20 @@
 
   <div id="app" class="hidden">
     <div class="card">
+      <label class="opt"><input type="checkbox" id="optInstant" checked><span>⚡ Mode instan (tanpa pengaturan)<small>Upload langsung diproses otomatis penuh dan siap download. Pengaturan di bawah diabaikan selama ini aktif. Matikan kalau mau meninjau manual.</small></span></label>
+    </div>
+    <div class="card">
       <h2>Pengaturan (berlaku untuk semua file)</h2>
       <div class="settings">
         <div>
           <label class="opt"><input type="radio" name="mode" value="auto" checked><span>Otomatis (disarankan)<small>Celah yang yakin lubang dilubangi. Detail putih (mata, gigi, kilau, sol sepatu) dipertahankan. Yang ragu ditandai untuk dicek.</small></span></label>
           <label class="opt"><input type="radio" name="mode" value="bgonly"><span>Hapus latar saja<small>Semua bentuk krem dipertahankan. Paling aman, tapi lubang tetap terisi krem.</small></span></label>
-          <label class="opt"><input type="checkbox" id="optUnsure"><span>Yang ragu: lubangi juga<small>Biasanya lebih baik dicek manual.</small></span></label>
+          <div class="hint" style="margin:8px 0 2px">Seberapa berani melubangi yang ragu:</div>
+          <label class="opt"><input type="radio" name="sens" value="safe"><span>Hati-hati<small>Yang ragu dipertahankan, yang besar ditandai "Perlu cek".</small></span></label>
+          <label class="opt"><input type="radio" name="sens" value="balanced" checked><span>Seimbang (disarankan)<small>Yang ragu dilubangi; hanya yang besar ditandai "Perlu cek".</small></span></label>
+          <label class="opt"><input type="radio" name="sens" value="aggressive"><span>Berani, tanpa cek<small>Yang ragu dilubangi, tidak ada yang ditandai. Tercepat untuk batch besar.</small></span></label>
+          <div class="hint" style="margin-top:8px">Celah di bawah <b id="minFlagVal">0.03%</b> luas gambar dianggap terlalu kecil untuk ditandai (diputuskan otomatis).</div>
+          <input type="range" id="minFlag" min="0" max="0.5" step="0.01" value="0.03" style="width:100%">
         </div>
         <div>
           <label class="opt"><input type="checkbox" id="optBg" checked><span>Hapus path latar persegi</span></label>
@@ -135,6 +147,11 @@
             <button class="small" data-bg="white">Putih</button>
             <button class="small" data-bg="dark">Gelap</button>
           </div>
+          <div class="row" style="margin-top:10px">
+            <button class="small" id="zOut">−</button><span class="hint" id="zoomVal" style="min-width:44px;text-align:center">100%</span><button class="small" id="zIn">+</button>
+            <button class="small" id="zReset">Reset</button><button class="small" id="zFull">⛶ Layar penuh</button>
+            <span class="hint">Cubit / scroll = zoom · seret = geser · ketuk = ganti</span>
+          </div>
           <div style="height:10px"></div>
           <div id="stage" class="stage checker"></div>
           <p class="hint" style="margin:8px 0 0">Garis putus-putus = bentuk berwarna latar. Hijau = dilubangi (transparan). Merah muda = dipertahankan. Ketuk bentuknya untuk mengganti.</p>
@@ -149,9 +166,12 @@
             <div id="candTools" class="row" style="margin-bottom:10px">
               <button class="small" id="allHole">Lubangi semua</button>
               <button class="small" id="allKeep">Pertahankan semua</button>
+              <button class="small" id="btnUndo">↶ Urungkan</button>
               <button class="small" id="btnAutoAgain">Kembali ke saran otomatis</button>
+              <button class="small" id="btnShowAll">Tampilkan semua</button>
             </div>
             <div id="cands" class="cands"></div>
+            <p id="noAttn" class="hint hidden">Tidak ada yang perlu dicek ✓ Semua bentuk sudah diputuskan otomatis (lihat warna di pratinjau). Ketuk "Tampilkan semua" kalau mau memeriksa satu per satu.</p>
             <p id="noCands" class="hint hidden">Tidak ada bentuk berwarna latar. Tidak ada yang perlu dilubangi.</p>
           </div>
           <div class="card">
@@ -311,11 +331,14 @@ function findBgRects(items, vb) {
     const g = it.geo; if (!g || g.multi) return;
     const [x0, y0, x1, y1] = g.bbox, bw = x1 - x0, bh = y1 - y0;
     if (bw <= 0 || bh <= 0) return;
-    // 1) bentuknya persegi panjang (boleh punya titik tambahan di sisinya)
-    if (g.area / (bw * bh) < 0.99) return;
+    // 1) bentuknya (nyaris) persegi panjang. Latar hasil trace sering punya
+    //    takik kecil di tepi tempat objek menyentuh batas gambar, jadi
+    //    toleransinya dilonggarkan (area >= 92% dari bbox) dan keempat
+    //    sudut bbox harus tetap ada sebagai titik.
+    if (g.area / (bw * bh) < 0.92) return;
     const e = Math.max(bw, bh) * 0.002 + 0.01;
-    const onEdge = g.poly.every(([x, y]) => Math.min(Math.abs(x - x0), Math.abs(x - x1)) <= e || Math.min(Math.abs(y - y0), Math.abs(y - y1)) <= e);
-    if (!onEdge) return;
+    const hasCorner = (cx, cy) => g.poly.some(([x, y]) => Math.abs(x - cx) <= e && Math.abs(y - cy) <= e);
+    if (!(hasCorner(x0, y0) && hasCorner(x1, y0) && hasCorner(x1, y1) && hasCorner(x0, y1))) return;
     // 2) menutup seluruh viewBox ATAU seluruh isi gambar (viewBox bisa lebih besar karena padding)
     const t = 0.01;
     const coversVB = x0 <= vb[0] + vb[2] * t && y0 <= vb[1] + vb[3] * t && x1 >= vb[0] + vb[2] * (1 - t) && y1 >= vb[1] + vb[3] * (1 - t);
@@ -425,6 +448,13 @@ function classifyCandidates(items, bgIdxs, cands, vb) {
   cands.forEach((c) => {
     const H = items[c].geo;
     const thick = (2 * H.area) / Math.max(1, polyPerimeter(H.poly));      // tebal rata-rata bentuk
+    // 0) Lapisan latar sisa: trace sering memecah latar jadi beberapa bentuk krem besar.
+    //    Bentuk besar berwarna latar = latar, walau ada isi di atasnya (isi itu tetap utuh).
+    {
+      const frac = H.area / vbArea; let free = true;
+      for (let i = 0; i < c; i++) { const P = items[i].geo; if (P && !P.multi && !bgSet.has(i) && relation(H, P) === "contains") { free = false; break; } }
+      if (frac >= (free ? 0.015 : 0.02)) { out[c] = { decision: "hole", reason: "lapisan latar sisa (besar, warna sama dengan latar)", metrics: { thick: +thick.toFixed(1) } }; return; }
+    }
     // 1) Ada isi yang dilukis di atasnya (pupil, ikon, dsb.)? -> cat krem yang jadi bagian gambar
     for (let j = c + 1; j < items.length; j++) {
       const P = items[j].geo;
@@ -486,6 +516,7 @@ function makeZip(entries) {
 const $ = (id) => document.getElementById(id);
 const files = [];      // semua model file
 let cur = null;        // file yang sedang ditinjau
+let showAll = false;   // tampilkan semua kartu kandidat, bukan hanya yang perlu dicek
 
 const dropzone = $("dropzone"), fileInput = $("fileInput"), errBox = $("error"), app = $("app");
 dropzone.addEventListener("click", () => fileInput.click());
@@ -500,8 +531,11 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 function settings() {
   return {
     opts: { removeBg: $("optBg").checked, stripTranslate: $("optTr").checked, flattenGradients: $("optGrad").checked },
-    mode: document.querySelector("input[name=mode]:checked").value,
-    unsureAsHole: $("optUnsure").checked,
+    instant: $("optInstant").checked,
+    mode: $("optInstant").checked ? "auto" : document.querySelector("input[name=mode]:checked").value,
+    sens: $("optInstant").checked ? "aggressive" : document.querySelector("input[name=sens]:checked").value,
+    unsureAsHole: $("optInstant").checked || document.querySelector("input[name=sens]:checked").value !== "safe",
+    minFlag: parseFloat($("minFlag").value) || 0,
   };
 }
 
@@ -541,7 +575,7 @@ function buildModel(text, name) {
   const rootAttrs = Array.from(root.attributes).map((a) => a.name + '="' + escAttr(a.value) + '"').join(" ");
 
   prepare(items);
-  const m = { name, svgText: text, items, vb, rootAttrs, defsXml, extraXml, gradients, holes: new Set(), manual: false, reviewed: false, error: null };
+  const m = { name, svgText: text, items, vb, rootAttrs, defsXml, extraXml, gradients, holes: new Set(), decided: new Set(), manual: false, reviewed: false, error: null };
   m.bgIdxs = findBgRects(items, vb);
   m.bgColor = m.bgIdxs.length ? parseColor(getFill(items[m.bgIdxs[0]])) : null;
   m.cands = findCandidates(items, m.bgIdxs, m.bgColor);
@@ -559,7 +593,10 @@ function processModel(m) {
   const st = settings();
   const res = processItems(m.items, st.opts, { bgIdxs: m.bgIdxs, gradients: m.gradients }, Array.from(m.holes));
   m.res = res; m.out = buildSvg(m.rootAttrs, m.defsXml, res, m.extraXml);
-  m.pending = m.cands.filter((c) => m.cls[c].decision === "unsure" && !m.holes.has(c)).length;
+  const vbA = m.vb[2] * m.vb[3];
+  m.isBig = (c) => (m.items[c].geo.area / vbA) * 100 >= st.minFlag;
+  m.pending = (st.mode !== "auto" || st.sens === "aggressive") ? 0
+    : m.cands.filter((c) => m.cls[c].decision === "unsure" && m.isBig(c) && !m.decided.has(c)).length;
   m.needsCheck = !m.reviewed && (m.pending > 0 || res.hard > 0);
 }
 
@@ -580,7 +617,8 @@ async function handleFiles(list) {
   files.slice(before).forEach(applyAuto);
   dropzone.classList.add("hidden"); app.classList.remove("hidden");
   const ok = files.filter((m) => !m.error);
-  if (files.length === 1 && ok.length === 1) openReview(0); else showList();
+  if (settings().instant) { showList(); if (ok.length) { try { $("btnZip").click(); } catch (e) {} } }
+  else if (files.length === 1 && ok.length === 1) openReview(0); else showList();
 }
 
 // ---------- tampilan daftar ----------
@@ -608,11 +646,12 @@ function renderList() {
   });
   $("sumLine").innerHTML = "<b>" + files.length + "</b> file · bersih <b>" + okN + "</b> · perlu cek <b>" + chkN + "</b>" + (errN ? " · gagal <b>" + errN + "</b>" : "") + " · total lubang dibuat: " + holeN;
   $("btnZip").disabled = files.length - errN === 0;
+  $("btnZip").textContent = files.length - errN === 1 ? "⬇ Download hasil (SVG)" : "⬇ Download semua (ZIP)";
 }
 
 // ---------- tampilan tinjau ----------
 function openReview(i) {
-  cur = files[i];
+  cur = files[i]; cur.view = null; $("stage").closest(".card").classList.remove("fs");
   $("listView").classList.add("hidden"); $("reviewView").classList.remove("hidden");
   $("btnBack").classList.toggle("hidden", files.length < 2);
   $("btnNext").classList.toggle("hidden", files.length < 2);
@@ -640,13 +679,17 @@ function render() {
   const bgMode = document.querySelector("[data-bg].on").dataset.bg;
   $("stage").className = "stage " + bgMode;
   $("stage").innerHTML = '<svg viewBox="' + m.vb.join(" ") + '" xmlns="http://www.w3.org/2000/svg">' + defs + inner + m.cands.map(overlay).join("") + "</svg>";
+  applyView();
 
   const box = $("cands"); box.innerHTML = "";
-  $("candCount").textContent = m.cands.length ? "(" + m.cands.length + ")" : "";
+  const shown = m.cands.filter((c) => showAll || (m.cls[c].decision === "unsure" && m.isBig(c)) || m.decided.has(c));
+  $("candCount").textContent = m.cands.length ? "(" + shown.length + " dari " + m.cands.length + ")" : "";
   $("noCands").classList.toggle("hidden", m.cands.length > 0);
+  $("noAttn").classList.toggle("hidden", !(m.cands.length > 0 && shown.length === 0));
   $("candTools").classList.toggle("hidden", m.cands.length === 0);
+  $("btnShowAll").textContent = showAll ? "Hanya yang perlu dicek" : "Tampilkan semua (" + m.cands.length + ")";
   const order = { unsure: 0, hole: 1, keep: 2 };
-  m.cands.slice().sort((a, b) => order[m.cls[a].decision] - order[m.cls[b].decision] || a - b).forEach((c) => {
+  shown.slice().sort((a, b) => order[m.cls[a].decision] - order[m.cls[b].decision] || a - b).forEach((c) => {
     const g = m.items[c].geo, [x0, y0, x1, y1] = g.bbox, w = x1 - x0, h = y1 - y0, pad = Math.max(w, h) * 0.7 + 8;
     const vbT = [x0 - pad, y0 - pad, w + 2 * pad, h + 2 * pad].map((v) => +v.toFixed(2)).join(" ");
     const sel = m.holes.has(c), cl = m.cls[c];
@@ -661,12 +704,58 @@ function render() {
   $("stats").innerHTML = "Path: " + s.total + " → <b>" + s.kept + "</b> · Ukuran: " + kb(m.svgText.length) + " → <b>" + kb(m.out.length) + "</b>" +
     "<br>Lubang dibuat: " + m.holes.size + " (potongan di " + s.cuts + " path)" + (s.removedCovered ? " · path tertutup lubang dibuang: " + s.removedCovered : "") + (s.flattened ? " · gradien diratakan: " + s.flattened : "");
   $("warns").innerHTML = res.warnings.map((w) => "<li>" + w.replace(/</g, "&lt;") + "</li>").join("");
-  $("btnReviewed").textContent = m.reviewed ? "✓ Sudah dicek" : "Tandai sudah dicek";
+  $("btnReviewed").textContent = m.reviewed ? "✓ Sudah dicek" : "Sudah dicek → lanjut";
   $("btnReviewed").classList.toggle("on", m.reviewed);
 }
 
+function snap() { (cur.hist = cur.hist || []).push({ h: new Set(cur.holes), d: new Set(cur.decided), man: cur.manual }); if (cur.hist.length > 60) cur.hist.shift(); }
+// ---------- zoom / geser ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function applyView() {
+  const svg = $("stage").querySelector("svg"); if (!svg || !cur) return;
+  const [bx, by, bw, bh] = cur.vb, v = cur.view || (cur.view = { z: 1, cx: bx + bw / 2, cy: by + bh / 2 });
+  const w = bw / v.z, h = bh / v.z;
+  v.cx = clamp(v.cx, bx + w / 2, bx + bw - w / 2); v.cy = clamp(v.cy, by + h / 2, by + bh - h / 2);
+  svg.setAttribute("viewBox", [v.cx - w / 2, v.cy - h / 2, w, h].join(" "));
+  $("zoomVal").textContent = Math.round(v.z * 100) + "%";
+}
+function zoomAt(f, clientX, clientY) {
+  const svg = $("stage").querySelector("svg"); if (!svg || !cur) return;
+  const v = cur.view, w = cur.vb[2] / v.z, h = cur.vb[3] / v.z, r = svg.getBoundingClientRect();
+  let fx = 0.5, fy = 0.5;
+  if (clientX != null) { const sc = Math.min(r.width / w, r.height / h); fx = clamp((clientX - (r.left + r.width / 2)) / (sc * w) + 0.5, 0, 1); fy = clamp((clientY - (r.top + r.height / 2)) / (sc * h) + 0.5, 0, 1); }
+  const ax = v.cx - w / 2 + fx * w, ay = v.cy - h / 2 + fy * h;
+  v.z = clamp(v.z * f, 1, 40);
+  const nw = cur.vb[2] / v.z, nh = cur.vb[3] / v.z;
+  v.cx = ax - fx * nw + nw / 2; v.cy = ay - fy * nh + nh / 2; applyView();
+}
+(function () {
+  const st = $("stage"), ptrs = new Map(); let moved = 0, lastD = 0;
+  const dist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  st.addEventListener("pointerdown", (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 1) moved = 0; if (ptrs.size === 2) lastD = dist(); });
+  st.addEventListener("pointermove", (e) => {
+    const p = ptrs.get(e.pointerId); if (!p || !cur) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    if (ptrs.size === 2) {
+      const d = dist(), [a, b] = [...ptrs.values()]; if (lastD) zoomAt(d / lastD, (a.x + b.x) / 2, (a.y + b.y) / 2); lastD = d; moved = 99; return;
+    }
+    moved += Math.abs(dx) + Math.abs(dy);
+    if (moved > 8 && cur.view.z > 1) {
+      const svg = st.querySelector("svg"), r = svg.getBoundingClientRect(), v = cur.view, w = cur.vb[2] / v.z, h = cur.vb[3] / v.z;
+      const sc = Math.min(r.width / w, r.height / h); v.cx -= dx / sc; v.cy -= dy / sc; applyView();
+    }
+  });
+  const up = (e) => { ptrs.delete(e.pointerId); lastD = 0; };
+  ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => st.addEventListener(ev, up));
+  st.addEventListener("click", (e) => { if (moved > 8) { e.stopPropagation(); e.preventDefault(); moved = 0; } }, true);
+  st.addEventListener("wheel", (e) => { if (!cur) return; e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX, e.clientY); }, { passive: false });
+  $("zIn").addEventListener("click", () => zoomAt(1.5)); $("zOut").addEventListener("click", () => zoomAt(1 / 1.5));
+  $("zReset").addEventListener("click", () => { cur.view = null; applyView(); });
+  $("zFull").addEventListener("click", () => { const c = st.closest(".card"), on = c.classList.toggle("fs"); $("zFull").textContent = on ? "✕ Tutup layar penuh" : "⛶ Layar penuh"; applyView(); });
+})();
+
 function setHole(c, on) {
-  cur.manual = true; cur.reviewed = true;
+  snap(); cur.manual = true; cur.decided.add(c);
   if (on) cur.holes.add(c); else cur.holes.delete(c);
   render();
 }
@@ -689,16 +778,22 @@ function onSettingsChange() {
   files.forEach(applyAuto);
   if (cur) render(); else renderList();
 }
-document.querySelectorAll("input[name=mode], #optUnsure, #optBg, #optTr, #optGrad").forEach((el) => el.addEventListener("change", onSettingsChange));
+document.querySelectorAll("input[name=mode], input[name=sens], #minFlag, #optInstant, #optBg, #optTr, #optGrad").forEach((el) => el.addEventListener("change", onSettingsChange));
+$("minFlag").addEventListener("input", () => { $("minFlagVal").textContent = (+$("minFlag").value).toFixed(2) + "%"; });
 
-$("allHole").addEventListener("click", () => { cur.manual = true; cur.reviewed = true; cur.cands.forEach((c) => cur.holes.add(c)); render(); });
-$("allKeep").addEventListener("click", () => { cur.manual = true; cur.reviewed = true; cur.holes.clear(); render(); });
-$("btnAutoAgain").addEventListener("click", () => { cur.manual = false; cur.reviewed = false; applyAuto(cur); render(); });
-$("btnReviewed").addEventListener("click", () => { cur.reviewed = !cur.reviewed; render(); });
+$("allHole").addEventListener("click", () => { snap(); cur.manual = true; cur.cands.forEach((c) => { cur.holes.add(c); cur.decided.add(c); }); render(); });
+$("allKeep").addEventListener("click", () => { snap(); cur.manual = true; cur.cands.forEach((c) => cur.decided.add(c)); cur.holes.clear(); render(); });
+$("btnAutoAgain").addEventListener("click", () => { snap(); cur.manual = false; cur.reviewed = false; cur.decided.clear(); applyAuto(cur); render(); });
+$("btnUndo").addEventListener("click", () => { const h = cur.hist && cur.hist.pop(); if (!h) return; cur.holes = h.h; cur.decided = h.d; cur.manual = h.man; render(); });
+$("btnShowAll").addEventListener("click", () => { showAll = !showAll; render(); });
+$("btnReviewed").addEventListener("click", () => {
+  cur.reviewed = !cur.reviewed;
+  if (cur.reviewed && files.length > 1) $("btnNext").click(); else render();
+});
 $("bgHex").addEventListener("change", () => {
   const c = parseColor($("bgHex").value);
   cur.bgColor = c; cur.cands = findCandidates(cur.items, cur.bgIdxs, c); cur.cls = classifyCandidates(cur.items, cur.bgIdxs, cur.cands, cur.vb);
-  cur.manual = false; applyAuto(cur); render();
+  cur.manual = false; cur.decided.clear(); applyAuto(cur); render();
 });
 $("btnBack").addEventListener("click", showList);
 $("btnNext").addEventListener("click", () => {
@@ -707,14 +802,23 @@ $("btnNext").addEventListener("click", () => {
   showList();
 });
 
-function saveBlob(blob, filename) {
+async function saveBlob(blob, filename) {
+  let dl = null;
+  try { dl = window.claude && (await window.claude.use("downloads")); } catch (e) { dl = null; }
+  if (dl) {
+    try { await dl.save({ filename, data: blob }); } catch (e) { if (e && e.code !== "declined") alert_("Gagal menyimpan: " + (e.message || e.code)); }
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"), { href: url, download: filename });
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+function alert_(msg) { showError(msg); }
 $("btnDownload").addEventListener("click", () => saveBlob(new Blob([cur.out], { type: "image/svg+xml" }), cur.name + "-bersih.svg"));
-$("btnCopy").addEventListener("click", async () => { await navigator.clipboard.writeText(cur.out); $("btnCopy").textContent = "Tersalin ✓"; setTimeout(() => ($("btnCopy").textContent = "Salin kode"), 1500); });
+$("btnCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(cur.out); } catch (e) { $("btnCopy").textContent = "Gagal menyalin"; setTimeout(() => ($("btnCopy").textContent = "Salin kode"), 1500); return; } $("btnCopy").textContent = "Tersalin ✓"; setTimeout(() => ($("btnCopy").textContent = "Salin kode"), 1500); });
 $("btnZip").addEventListener("click", () => {
+  const okF = files.filter((m) => !m.error);
+  if (okF.length === 1) { processModel(okF[0]); saveBlob(new Blob([okF[0].out], { type: "image/svg+xml" }), okF[0].name + "-bersih.svg"); return; }
   const used = new Set(), enc = new TextEncoder(), entries = [];
   files.forEach((m) => {
     if (m.error) return; processModel(m);
