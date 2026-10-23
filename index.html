@@ -77,7 +77,6 @@
   #error { color: var(--err); text-align: center; padding: 12px; }
   #progress { text-align: center; color: var(--muted); }
   .hint { color: var(--muted); font-size: 13px; }
-
   /* ===== UI v2 (penyegaran tampilan) ===== */
   :root { --bg:#0b0e17; --panel:#141a29; --line:#26304a; --grad:linear-gradient(135deg,#6d7cff,#38bdf8); --sh:0 10px 30px rgba(0,0,0,.35); }
   body { min-height:100vh; background:radial-gradient(800px 460px at 0 -10%,rgba(109,124,255,.18),transparent 60%),radial-gradient(700px 420px at 100% 0,rgba(56,189,248,.12),transparent 55%),var(--bg); background-attachment:fixed; }
@@ -110,6 +109,39 @@
   .badge, .chip { font-weight:600; }
   @media (max-width:700px) { header { padding:10px 14px; } main { padding:14px; } #dropzone { padding:44px 18px; } }
   @media (prefers-reduced-motion:reduce) { *{ animation:none!important; transition:none!important; } }
+
+  /* ===== Panel pengaturan tambahan ===== */
+  details.quick { padding:0; overflow:hidden; margin-top:16px; border-color:rgba(124,156,255,.35); background:linear-gradient(180deg,rgba(109,124,255,.09),var(--panel) 120px); }
+  details.quick > summary { list-style:none; cursor:pointer; padding:16px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-weight:700; font-size:16px; }
+  details.quick > summary::-webkit-details-marker { display:none; }
+  details.quick > summary .qs { color:var(--muted); font-weight:400; font-size:13px; flex:1; }
+  details.quick > summary::after { content:'▾'; color:var(--muted); transition:.2s; }
+  details.quick:not([open]) > summary::after { transform:rotate(-90deg); }
+  .qbody { padding:0 20px 20px; display:grid; gap:16px; }
+  .qh { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  .pchips { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+  .pchip { text-align:left; display:flex; flex-direction:column; gap:3px; padding:12px 14px; border-radius:14px; background:#101521; }
+  .pchip small { color:var(--muted); font-size:12px; line-height:1.4; }
+  .pchip.on { border-color:var(--accent); background:linear-gradient(135deg,rgba(109,124,255,.22),rgba(56,189,248,.12)); box-shadow:0 0 0 1px var(--accent) inset; color:var(--text); font-weight:400; }
+  .pchip.on b::after { content:' ✓'; color:var(--ok); }
+  .swgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px; }
+  label.sw { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:12px 14px; border:1px solid var(--line); border-radius:14px; background:#101521; cursor:pointer; transition:.2s; }
+  label.sw:hover { border-color:var(--accent); background:#101521; }
+  label.sw .swt b { font-size:14px; }
+  label.sw .swt small { display:block; color:var(--muted); font-size:12px; line-height:1.45; margin-top:3px; }
+  .rec, .risk { font-style:normal; font-size:11px; font-weight:700; padding:1px 8px; border-radius:999px; margin-left:6px; vertical-align:1px; }
+  .rec { background:rgba(46,229,157,.15); color:var(--ok); } .risk { background:rgba(255,180,84,.16); color:var(--warn); }
+  label.sw input { appearance:none; -webkit-appearance:none; flex:none; width:44px; height:26px; border-radius:999px; background:#2a3250; position:relative; transition:.2s; margin:2px 0 0; cursor:pointer; }
+  label.sw input::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:.2s; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+  label.sw input:checked { background:var(--grad); }
+  label.sw input:checked::after { left:21px; }
+  .tolbox { border:1px solid var(--line); border-radius:14px; padding:12px 14px; background:#101521; }
+  .tolbox .top { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .tolbox .top b.v { margin-left:auto; font-size:18px; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tolbox input[type=range] { width:100%; }
+  .tolbox .marks { display:flex; justify-content:space-between; color:var(--muted); font-size:11px; }
+  .tip { border-radius:14px; padding:12px 14px; background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.25); font-size:13px; line-height:1.55; }
+  .tip b { color:#7dd3fc; }
 </style>
 </head>
 <body>
@@ -123,13 +155,37 @@
     <small>Khusus SVG berisi &lt;path&gt;, seperti hasil auto-trace</small>
     <input id="fileInput" type="file" accept=".svg,image/svg+xml" multiple hidden>
   </div>
+  <details id="quick" class="card quick" open>
+    <summary><span>⚙️ Pengaturan tambahan</span><span class="qs">atur dulu sebelum upload · berlaku untuk semua file</span></summary>
+    <div class="qbody">
+      <div>
+        <div class="qh">Pilih preset sesuai kondisi filemu</div>
+        <div class="pchips">
+          <button class="pchip on" data-p="rekom"><b>⚡ Rekomendasi</b><small>Upload langsung jadi. Cocok untuk kebanyakan file, terutama batch besar.</small></button>
+          <button class="pchip" data-p="kontras"><b>🎯 Warna objek mirip latar</b><small>Ada kemeja putih, rak krem, pot. Tinjau manual dengan toleransi sedang.</small></button>
+          <button class="pchip" data-p="bandel"><b>🧽 Sisa warna latar bandel</b><small>Warna krem/peach masih tertinggal. Toleransi tinggi, hapus semua yang mirip.</small></button>
+          <button class="pchip" data-p="aman"><b>🛡️ Paling aman</b><small>Hanya warna yang persis sama dengan latar. Objek tidak tersentuh.</small></button>
+        </div>
+      </div>
+      <div class="swgrid">
+        <label class="sw"><span class="swt"><b>⚡ Mode instan</b><em class="rec">disarankan</em><small>Upload langsung diproses otomatis dan siap download, tanpa tahap tinjau. Matikan kalau mau cek bentuk satu per satu.</small></span><input type="checkbox" id="optInstant" checked></label>
+        <label class="sw"><span class="swt"><b>🧩 Isi kembali bagian dalam objek berwarna latar</b><em class="rec">disarankan</em><small>Contoh: kemeja putih yang sebenarnya latar kelihatan lewat celah jaket. Matikan kalau lubang asli (mis. di antara lengan) ikut terisi.</small></span><input type="checkbox" id="optPocket" checked></label>
+        <label class="sw"><span class="swt"><b>🧽 Hapus SEMUA bentuk yang mirip latar</b><em class="risk">berisiko</em><small>Mengabaikan saran otomatis. Objek krem/peach pucat (pot, rak, meja, kemeja putih) bisa ikut hilang. Cek di pratinjau, pakai Urungkan.</small></span><input type="checkbox" id="optAll"></label>
+      </div>
+      <div class="tolbox">
+        <div class="top"><b>🎚️ Toleransi warna latar</b><b class="v" id="tolVal">40</b></div>
+        <div class="hint">Warna terang yang mirip latar (krem, peach pucat, gradien pucat) ikut dianggap latar. Naikkan kalau ada warna sisa, turunkan kalau objek terang ikut hilang.</div>
+        <input type="range" id="tolRange" min="8" max="80" step="1" value="40">
+        <div class="marks"><span>8 · persis sama</span><span>40 · disarankan</span><span>80 · sangat longgar</span></div>
+      </div>
+      <div class="tip">💡 <b>Saran:</b> hasil paling bersih datang dari sumbernya. Kalau ilustrasi bisa dibuat ulang dengan <b>latar warna kontras</b> yang tidak dipakai objek (hijau neon <code>#00FF00</code> atau magenta <code>#FF00FF</code>), tool ini memisahkannya hampir sempurna. Latar putih/krem + objek putih/krem (kemeja, awan, pot) memang sulit dibedakan secara otomatis, jadi pakai preset 🎯 lalu cek pratinjau dengan zoom.</div>
+    </div>
+  </details>
+
   <div id="error" class="hidden"></div>
   <div id="progress" class="card hidden"></div>
 
   <div id="app" class="hidden">
-    <div class="card">
-      <label class="opt"><input type="checkbox" id="optInstant" checked><span>⚡ Mode instan (tanpa pengaturan)<small>Upload langsung diproses otomatis penuh dan siap download. Pengaturan di bawah diabaikan selama ini aktif. Matikan kalau mau meninjau manual.</small></span></label>
-    </div>
     <div class="card">
       <h2>Pengaturan (berlaku untuk semua file)</h2>
       <div class="settings">
@@ -383,12 +439,15 @@ function findBgRects(items, vb) {
   return out;
 }
 
-function findCandidates(items, bgIdxs, bgColor, tol = 8) {
+function findCandidates(items, bgIdxs, bgColor, tol = 8, grads = {}) {
   if (!bgColor) return [];
   const out = [];
   items.forEach((it, i) => {
     if (bgIdxs.includes(i) || !it.geo || it.geo.multi || it.geo.area < 4) return;
-    const c = parseColor(getFill(it));
+    const f = getFill(it); let c = parseColor(f);
+    const um = !c && f.match(/^url\(\s*#([^)]+)\)$/);
+    if (um && grads[um[1]] && grads[um[1]].length) { const st = grads[um[1]]; c = [0, 1, 2].map((k) => Math.round(st.reduce((a, x) => a + x[k], 0) / st.length)); }
+    if (c && tol > 8 && lum(c) < 0.8) return; // warna gelap = isi gambar, bukan latar
     if (c && Math.max(Math.abs(c[0] - bgColor[0]), Math.abs(c[1] - bgColor[1]), Math.abs(c[2] - bgColor[2])) <= tol) out.push(i);
   });
   return out;
@@ -405,10 +464,10 @@ function relation(H, P) {
 
 // opts: {removeBg, stripTranslate, flattenGradients}; ctx: {bgIdxs, gradients:{id:[[r,g,b],...]}}
 function processItems(items, opts, ctx, holes) {
-  const warnings = [], keep = items.map(() => true), extra = items.map(() => []); let hard = 0;
+  const warnings = [], keep = items.map(() => true), extra = items.map(() => []), clips = items.map(() => []), clipDefs = {}; let hard = 0;
   const holeSet = new Set(holes);
   if (opts.removeBg) ctx.bgIdxs.forEach((i) => (keep[i] = false));
-  let cuts = 0, removedCovered = 0;
+  let cuts = 0, removedCovered = 0, tonal = 0;
   [...holes].sort((a, b) => a - b).forEach((h) => {
     const H = items[h].geo;
     if (!H || H.multi) { warnings.push("Bentuk #" + h + " tidak bisa dilubangi (geometri tidak didukung)."); hard++; return; }
@@ -425,7 +484,24 @@ function processItems(items, opts, ctx, holes) {
       } else if (rel === "covered") {
         if (keep[i]) { keep[i] = false; removedCovered++; }
       } else if (rel === "partial") {
-        warnings.push("Path #" + i + " tumpang tindih sebagian dengan lubang #" + h + ". Wajar kalau itu bayangan di bawah celah; cek di pratinjau.");
+        // Bentuk di bawah menumpuk SEBAGIAN dengan lubang: kurangi lewat clip-path (kurva tetap mulus).
+        // Tanpa ini area itu tetap berwarna (mis. siluet daun hijau di bawah celah krem).
+        clips[i].push(h); clipDefs[h] = items[h].d; cutHere++;
+      }
+    }
+    // Lapisan nada (bayangan/rona latar): bentuk terang, mirip warna latar, dilukis DI ATAS lubang
+    // besar dan seluruhnya di dalamnya -> ikut dibuang, kalau tidak latar cuma "berganti warna".
+    if (ctx.bgColor && H.area >= (ctx.bigArea || Infinity)) {
+      for (let i = h + 1; i < items.length; i++) {
+        if (!keep[i]) continue;
+        const P = items[i].geo; if (!P || P.multi || P.area < H.area * 0.2) continue;
+        const pc = parseColor(getFill(items[i])); if (!pc || lum(pc) < 0.85) continue;
+        if (Math.max(Math.abs(pc[0] - ctx.bgColor[0]), Math.abs(pc[1] - ctx.bgColor[1]), Math.abs(pc[2] - ctx.bgColor[2])) > 60) continue;
+        // bentuk nada ini menempati wilayah (bbox) lubang yang sama: satu panel latar yang dipecah per nada
+        const hb = H.bbox, pb = P.bbox, tol = 2;
+        const within = pb[0] >= hb[0] - tol && pb[1] >= hb[1] - tol && pb[2] <= hb[2] + tol && pb[3] <= hb[3] + tol;
+        const ratio = ((pb[2] - pb[0]) * (pb[3] - pb[1])) / ((hb[2] - hb[0]) * (hb[3] - hb[1]));
+        if (within && ratio >= 0.6) { keep[i] = false; tonal++; }
       }
     }
     if (cutHere === 0) { warnings.push("Lubang #" + h + " tidak menemukan path di bawahnya yang bisa dilubangi. Hasilnya mungkin tidak berubah."); hard++; }
@@ -447,17 +523,25 @@ function processItems(items, opts, ctx, holes) {
     }
     let d = it.d;
     if (extra[i].length) { d = d + " " + extra[i].join(" "); attrs["fill-rule"] = "evenodd"; }
-    out.push({ attrs, d, src: i });
+    out.push({ attrs, d, src: i, clips: clips[i] });
   });
-  return { out, warnings, hard, usedUrls, stats: { cuts, removedCovered, flattened, kept: out.length, total: items.length } };
+  return { out, clipDefs, warnings, hard, usedUrls, stats: { cuts, removedCovered, tonal, flattened, kept: out.length, total: items.length } };
 }
 
 function escAttr(v) { return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
 function attrStr(a) { return Object.keys(a).map((k) => k + '="' + escAttr(a[k]) + '"').join(" "); }
-function pathMarkup(o) { return "<path " + attrStr(o.attrs) + ' d="' + escAttr(o.d) + '"/>'; }
+function pathMarkup(o) {
+  let x = "<path " + attrStr(o.attrs) + ' d="' + escAttr(o.d) + '"/>';
+  (o.clips || []).forEach((h) => { x = '<g clip-path="url(#hole' + h + ')">' + x + "</g>"; });
+  return x;
+}
+function clipDefsMarkup(res) {
+  const ks = Object.keys(res.clipDefs || {}); if (!ks.length) return "";
+  return "<defs>" + ks.map((h) => '<clipPath id="hole' + h + '"><path clip-rule="evenodd" d="M -100000 -100000 L 100000 -100000 L 100000 100000 L -100000 100000 Z ' + escAttr(res.clipDefs[h]) + '"/></clipPath>').join("") + "</defs>";
+}
 function buildSvg(rootAttrs, defsXml, res, extraXml) {
   const defs = res.usedUrls.size && defsXml ? defsXml + "\n" : "";
-  return "<svg " + rootAttrs + ">\n" + (extraXml || "") + defs + res.out.map(pathMarkup).join("\n") + "\n</svg>\n";
+  return "<svg " + rootAttrs + ">\n" + (extraXml || "") + defs + clipDefsMarkup(res) + res.out.map(pathMarkup).join("\n") + "\n</svg>\n";
 }
 // ---- Klasifikasi otomatis: lubang atau cat krem? ----
 function lum(c) { return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; }
@@ -566,7 +650,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 function settings() {
   return {
     opts: { removeBg: $("optBg").checked, stripTranslate: $("optTr").checked, flattenGradients: $("optGrad").checked },
-    instant: $("optInstant").checked,
+    instant: $("optInstant").checked, pockets: $("optPocket").checked, all: $("optAll").checked, tol: +$("tolRange").value,
     mode: $("optInstant").checked ? "auto" : document.querySelector("input[name=mode]:checked").value,
     sens: $("optInstant").checked ? "aggressive" : document.querySelector("input[name=sens]:checked").value,
     unsureAsHole: $("optInstant").checked || document.querySelector("input[name=sens]:checked").value !== "safe",
@@ -613,7 +697,7 @@ function buildModel(text, name) {
   const m = { name, svgText: text, items, vb, rootAttrs, defsXml, extraXml, gradients, holes: new Set(), decided: new Set(), manual: false, reviewed: false, error: null };
   m.bgIdxs = findBgRects(items, vb);
   m.bgColor = m.bgIdxs.length ? parseColor(getFill(items[m.bgIdxs[0]])) : null;
-  m.cands = findCandidates(items, m.bgIdxs, m.bgColor);
+  m.cands = findCandidates(items, m.bgIdxs, m.bgColor, settings().tol, gradients);
   m.cls = classifyCandidates(items, m.bgIdxs, m.cands, vb);
   return m;
 }
@@ -621,12 +705,49 @@ function buildModel(text, name) {
 function applyAuto(m) {
   if (m.error || m.manual) return;
   const st = settings(); m.holes = new Set();
-  if (st.mode === "auto") m.cands.forEach((c) => { const d = m.cls[c].decision; if (d === "hole" || (d === "unsure" && st.unsureAsHole)) m.holes.add(c); });
+  if (st.all) m.cands.forEach((c) => m.holes.add(c));
+  else if (st.mode === "auto") m.cands.forEach((c) => { const d = m.cls[c].decision; if (d === "hole" || (d === "unsure" && st.unsureAsHole)) m.holes.add(c); });
+}
+
+// ---------- kantong latar tertutup (mis. kemeja putih = latar yang kelihatan lewat celah jaket) ----------
+// alpha: Uint8Array w*h (0..255). Mengembalikan komponen kosong yang TIDAK terhubung ke tepi gambar.
+function findPockets(alpha, w, h, minPx) {
+  const EMPTY = 40, seen = new Uint8Array(w * h), st = [];
+  const push = (i) => { if (!seen[i] && alpha[i] < EMPTY) { seen[i] = 1; st.push(i); } };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+  while (st.length) { const i = st.pop(), x = i % w, y = (i / w) | 0; if (x > 0) push(i - 1); if (x < w - 1) push(i + 1); if (y > 0) push(i - w); if (y < h - 1) push(i + w); }
+  const pockets = [];
+  for (let i0 = 0; i0 < w * h; i0++) {
+    if (seen[i0] || alpha[i0] >= EMPTY) continue;
+    const comp = [i0]; seen[i0] = 1;
+    for (let k = 0; k < comp.length; k++) { const i = comp[k], x = i % w, y = (i / w) | 0; [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1].forEach((j) => { if (j >= 0 && !seen[j] && alpha[j] < EMPTY) { seen[j] = 1; comp.push(j); } }); }
+    if (comp.length >= minPx) pockets.push(comp);
+  }
+  return pockets;
+}
+// Ubah piksel kantong jadi path (run horizontal), dilebarkan 2 px ke dalam piksel terisi agar tepi tersembunyi di bawah bentuk di atasnya.
+function pocketPath(comp, alpha, w, h, sc, vb) {
+  const m = new Uint8Array(w * h); comp.forEach((i) => (m[i] = 1));
+  for (let it = 0; it < 2; it++) { const add = []; for (let i = 0; i < w * h; i++) { if (m[i] || alpha[i] < 40) continue; const x = i % w, y = (i / w) | 0; if ((x > 0 && m[i - 1]) || (x < w - 1 && m[i + 1]) || (y > 0 && m[i - w]) || (y < h - 1 && m[i + w])) add.push(i); } add.forEach((i) => (m[i] = 1)); }
+  let d = ""; const f = (v) => +v.toFixed(2);
+  for (let y = 0; y < h; y++) { let x = 0; while (x < w) { if (!m[y * w + x]) { x++; continue; } const x0 = x; while (x < w && m[y * w + x]) x++; d += "M" + f(vb[0] + x0 / sc) + " " + f(vb[1] + y / sc) + "h" + f((x - x0) / sc) + "v" + f(1 / sc + 0.4) + "h" + f(-(x - x0) / sc) + "z"; } }
+  return d;
+}
+function fillPockets(res, vb, bgColor, minFrac) {
+  const w = 900, sc = w / vb[2], h = Math.ceil(vb[3] * sc);
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const ctx = cv.getContext("2d");
+  ctx.setTransform(sc, 0, 0, sc, -vb[0] * sc, -vb[1] * sc);
+  res.out.forEach((o) => { try { ctx.fill(new Path2D(o.d), o.attrs["fill-rule"] === "evenodd" ? "evenodd" : "nonzero"); } catch (e) {} });
+  const img = ctx.getImageData(0, 0, w, h).data, alpha = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) alpha[i] = img[i * 4 + 3];
+  const pk = findPockets(alpha, w, h, Math.round(w * h * minFrac));
+  return pk.map((comp) => ({ attrs: { fill: "rgb(" + bgColor.join(",") + ")" }, d: pocketPath(comp, alpha, w, h, sc, vb), src: -1, clips: [] }));
 }
 
 function processModel(m) {
   const st = settings();
-  const res = processItems(m.items, st.opts, { bgIdxs: m.bgIdxs, gradients: m.gradients }, Array.from(m.holes));
+  const res = processItems(m.items, st.opts, { bgIdxs: m.bgIdxs, gradients: m.gradients, bgColor: m.bgColor, bigArea: m.vb[2] * m.vb[3] * 0.015 }, Array.from(m.holes));
+  if (st.pockets && m.bgColor && st.opts.removeBg && m.bgIdxs.length) { const pk = fillPockets(res, m.vb, m.bgColor, 0.0015); res.pockets = pk.length; res.out = pk.concat(res.out); }
   m.res = res; m.out = buildSvg(m.rootAttrs, m.defsXml, res, m.extraXml);
   const vbA = m.vb[2] * m.vb[3];
   m.isBig = (c) => (m.items[c].geo.area / vbA) * 100 >= st.minFlag;
@@ -652,6 +773,7 @@ async function handleFiles(list) {
   files.slice(before).forEach(applyAuto);
   dropzone.classList.add("hidden"); app.classList.remove("hidden");
   const ok = files.filter((m) => !m.error);
+  $("quick").open = false;
   if (settings().instant) { showList(); if (ok.length) { try { $("btnZip").click(); } catch (e) {} } }
   else if (files.length === 1 && ok.length === 1) openReview(0); else showList();
 }
@@ -705,10 +827,10 @@ function render() {
   processModel(m);
   const res = m.res, st = settings();
   const inner = res.out.map(pathMarkup).join("");
-  const defs = res.usedUrls.size ? m.defsXml : "";
+  const defs = (res.usedUrls.size ? m.defsXml : "") + clipDefsMarkup(res);
   const overlay = (c) => {
     const sel = m.holes.has(c);
-    return '<path d="' + escAttr(m.items[c].d) + '" fill="' + (sel ? "rgba(46,229,157,.16)" : "rgba(255,45,149,.10)") + '" stroke="' + (sel ? "#2ee59d" : "#ff2d95") +
+    return '<path d="' + escAttr(m.items[c].d) + '" fill="' + (sel ? "none" : "rgba(255,45,149,.10)") + '" stroke="' + (sel ? "#2ee59d" : "#ff2d95") +
       '" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" data-c="' + c + '" style="cursor:pointer;pointer-events:all"/>';
   };
   const bgMode = document.querySelector("[data-bg].on").dataset.bg;
@@ -813,7 +935,12 @@ function onSettingsChange() {
   files.forEach(applyAuto);
   if (cur) render(); else renderList();
 }
-document.querySelectorAll("input[name=mode], input[name=sens], #minFlag, #optInstant, #optBg, #optTr, #optGrad").forEach((el) => el.addEventListener("change", onSettingsChange));
+document.querySelectorAll("input[name=mode], input[name=sens], #minFlag, #optInstant, #optAll, #optPocket, #optBg, #optTr, #optGrad").forEach((el) => el.addEventListener("change", onSettingsChange));
+$("tolRange").addEventListener("input", () => { $("tolVal").textContent = $("tolRange").value; });
+$("tolRange").addEventListener("change", () => {
+  files.forEach((m) => { if (m.error || !m.bgColor) return; m.cands = findCandidates(m.items, m.bgIdxs, m.bgColor, +$("tolRange").value, m.gradients); m.cls = classifyCandidates(m.items, m.bgIdxs, m.cands, m.vb); m.decided.clear(); m.hist = []; applyAuto(m); });
+  if (cur) render(); else renderList();
+});
 $("minFlag").addEventListener("input", () => { $("minFlagVal").textContent = (+$("minFlag").value).toFixed(2) + "%"; });
 
 $("allHole").addEventListener("click", () => { snap(); cur.manual = true; cur.cands.forEach((c) => { cur.holes.add(c); cur.decided.add(c); }); render(); });
@@ -827,7 +954,7 @@ $("btnReviewed").addEventListener("click", () => {
 });
 $("bgHex").addEventListener("change", () => {
   const c = parseColor($("bgHex").value);
-  cur.bgColor = c; cur.cands = findCandidates(cur.items, cur.bgIdxs, c); cur.cls = classifyCandidates(cur.items, cur.bgIdxs, cur.cands, cur.vb);
+  cur.bgColor = c; cur.cands = findCandidates(cur.items, cur.bgIdxs, c, settings().tol, cur.gradients); cur.cls = classifyCandidates(cur.items, cur.bgIdxs, cur.cands, cur.vb);
   cur.manual = false; cur.decided.clear(); applyAuto(cur); render();
 });
 $("btnBack").addEventListener("click", showList);
@@ -865,6 +992,22 @@ $("btnZip").addEventListener("click", () => {
 $("btnAdd").addEventListener("click", () => fileInput.click());
 function resetAll() { files.length = 0; cur = null; app.classList.add("hidden"); dropzone.classList.remove("hidden"); errBox.classList.add("hidden"); }
 $("btnClear").addEventListener("click", resetAll);
+
+// ---------- preset pengaturan ----------
+(function () {
+  const P = { rekom: { instant: 1, tol: 40, pocket: 1, all: 0 }, kontras: { instant: 0, tol: 20, pocket: 1, all: 0 }, bandel: { instant: 0, tol: 60, pocket: 1, all: 1 }, aman: { instant: 0, tol: 8, pocket: 0, all: 0 } };
+  const fire = (el) => el.dispatchEvent(new Event("change", { bubbles: true }));
+  let busy = false;
+  function apply(k) {
+    busy = true; const p = P[k]; $("optInstant").checked = !!p.instant; $("optPocket").checked = !!p.pocket; $("optAll").checked = !!p.all;
+    $("tolRange").value = p.tol; $("tolVal").textContent = p.tol;
+    document.querySelectorAll(".pchip").forEach((b) => b.classList.toggle("on", b.dataset.p === k));
+    ["optInstant", "optPocket", "optAll", "tolRange"].forEach((id) => fire($(id)));
+    busy = false;
+  }
+  document.querySelectorAll(".pchip").forEach((b) => b.addEventListener("click", () => apply(b.dataset.p)));
+  ["optInstant", "optPocket", "optAll", "tolRange"].forEach((id) => $(id).addEventListener("change", () => { if (!busy) document.querySelectorAll(".pchip").forEach((b) => b.classList.remove("on")); }));
+})();
 </script>
 </body>
 </html>
