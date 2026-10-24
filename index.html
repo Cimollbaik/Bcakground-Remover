@@ -571,8 +571,12 @@ function classifyCandidates(items, bgIdxs, cands, vb) {
     //    Bentuk besar berwarna latar = latar, walau ada isi di atasnya (isi itu tetap utuh).
     {
       const frac = H.area / vbArea; let free = true;
+      // Aturan ukuran hanya untuk warna yang (nyaris) persis sama dengan latar. Warna yang lebih longgar
+      // (peach pucat, gradien meja, dsb.) bisa objek sungguhan, jadi diserahkan ke aturan lain.
+      const bgc0 = parseColor(getFill(items[[...bgSet][0]])), hc0 = parseColor(getFill(items[c]));
+      const sameBg = !!(bgc0 && hc0) && Math.max(Math.abs(bgc0[0] - hc0[0]), Math.abs(bgc0[1] - hc0[1]), Math.abs(bgc0[2] - hc0[2])) <= 12;
       for (let i = 0; i < c; i++) { const P = items[i].geo; if (P && !P.multi && !bgSet.has(i) && relation(H, P) === "contains") { free = false; break; } }
-      if (frac >= (free ? 0.015 : 0.02)) { out[c] = { decision: "hole", reason: "lapisan latar sisa (besar, warna sama dengan latar)", metrics: { thick: +thick.toFixed(1) } }; return; }
+      if (sameBg && frac >= (free ? 0.015 : 0.02)) { out[c] = { decision: "hole", reason: "lapisan latar sisa (besar, warna sama dengan latar)", metrics: { thick: +thick.toFixed(1) } }; return; }
     }
     // 1) Ada isi yang dilukis di atasnya (pupil, ikon, dsb.)? -> cat krem yang jadi bagian gambar
     for (let j = c + 1; j < items.length; j++) {
